@@ -1,0 +1,380 @@
+:numbered:
+:icons: font
+:pagenums:
+:imagesdir: images
+:iconsdir: ./icons
+:stylesdir: ./styles
+:scriptsdir: ./js
+
+:image-link: https://pbs.twimg.com/profile_images/425289501980639233/tUWf7KiC.jpeg
+ifndef::sourcedir[:sourcedir: ./src/main/java/]
+ifndef::resourcedir[:resourcedir: ./src/main/resources/]
+ifndef::imgsdir[:imgsdir: ./../images]
+:source-highlighter: coderay
+
+== System EAI 
+
+=== wiadomość (Message)
+
+image:MessageSolution.gif[]
+
+Patrz : sekcja Camel
+
+image:messageEip.png[] 
+
+----
+//InOnly
+getContext().createProducerTemplate().sendBody("direct:startInOnly", "Hello World");
+ 
+//InOut
+String result = (String) getContext().createProducerTemplate().requestBody("direct:startInOut", "Hello World");
+----
+
+
+----
+from("direct:startInOnly").inOnly("bean:process");
+ 
+from("direct:startInOut").inOut("bean:process");
+----
+
+XML :
+
+----
+<route>
+  <from uri="direct:startInOnly"/>
+  <inOnly uri="bean:process"/>
+</route>
+ 
+<route>
+  <from uri="direct:startInOut"/>
+  <inOut uri="bean:process"/>
+</route>
+----
+
+=== kanał wiadomości (Message Channel)
+
+image:MessageChannelSolution.gif[]
+
+Fizyczna bądz logiczna reprezentacja drogi/trasy po której poruszają się wiadomości 
+
+
+** Przykłady:
+
+----
+jms:queue:foo
+
+to("jms:queue:foo")
+
+<to uri="jms:queue:foo"/>
+----
+
+Komponenty:
+
+** ActiveMQ
+
+** JMS
+
+** AMQP 
+
+=== potok i filtr  (Pipes and Filters) (Top ten)
+
+
+image:PipesAndFilters.gif[]
+
+
+** Filters - decydują które wiadomości mogą być przekazywane dalej w czasie tras
+
+** Pipes - tworzą logiczny ciąg procesów
+
+Działanie w szeregu :
+
+Zastosowanie :
+  - Wyzwalanie taska pociąga za sobą ciąg logicznych zdarzeń np : kodowanie + kompresja + szyfrowanie.
+  - tworzy logiczny ciąg zdarzeń wyrażając jasno zamiary autora.
+  - dzieli długie procesy na logiczne kawałki
+
+
+source:https://access.redhat.com/documentation/en-US/Red_Hat_JBoss_Fuse/6.0/html/Implementing_Enterprise_Integration_Patterns/files/MsgSys-Pipes.html
+
+=== InOut
+
+image:pipe_and_filters.gif[]
+
+----
+from("jms:RawOrders").pipeline("cxf:bean:decrypt", "cxf:bean:authenticate", "cxf:bean:dedup", "jms:CleanOrders");
+----
+
+
+=== InOnly
+
+source:https://access.redhat.com/documentation/en-US/Red_Hat_JBoss_Fuse/6.0/html/Implementing_Enterprise_Integration_Patterns/files/MsgSys-Pipes.html
+
+
+image:pipe_and_filters_in.gif[]
+
+
+[source,xml]
+----
+<route>
+   <from uri="jms:queue:invoice"/>
+   <multicast>
+     <to uri="log:pl.java.scalatech"/>
+     <pipeline>
+       <bean ref="encodingInvoice"/>
+       <bean ref="compressor"/>
+       <bean ref="encryptor"/>
+       <bean ref="confirmation/>
+     </pipeline>
+   </multicast>
+</route>
+----
+
+
+JAVA DSL :
+
+[source,java]
+----
+from("direct:a").pipeline("log:pl.java.scalatech", "encodingInvoice", "compressor", "confirmation");
+----
+
+Działanie równoległe :
+
+[source,xml]
+----
+<route>
+<from uri="jms:queue:invoice"/>
+   <multicast>
+      <to uri="log:pl.java.scalatech"/>
+      <bean ref="encodingInvoice"/>
+      <bean ref="compressor"/>
+      <bean ref="encryptor"/>
+      <bean ref="confirmation"/>
+ </multicast>
+</route>
+
+<route>
+  <from uri="activemq:SomeQueue"/>
+  <multicast>
+    <pipeline>
+      <bean ref="something"/>
+      <to uri="log:Something"/>
+    </pipeline>
+    <pipeline>
+      <bean ref="foo"/>
+      <bean ref="bar"/>
+      <to uri="activemq:OutputQueue"/>
+    </pipeline>
+  </multicast>
+</route>
+
+----
+
+** Filter
+
+----
+from("jms:queue:inbox").filter(header("test").isNotEqualTo("true")).to("jms:queue:order");
+----
+
+Spring XML : 
+
+----
+<route>
+        <from uri="jms:queue:inbox"/>
+        <filter>
+                <xpath>$test = 'false'</xpath>
+                <to uri="jms:queue:inbox"/>
+        </filter>
+</route>
+----
+
+
+
+
+
+=== router (MessageRouter)
+
+image:MessageRouter.gif[]
+
+Pozwala przekierować wiadomość na inne elementy bądź trasy w zależności od zdefiniowanych warunków
+
+----
+RouteBuilder builder = new RouteBuilder() {
+    public void configure() {
+        errorHandler(deadLetterChannel("mock:error"));
+ 
+        from("direct:a")
+            .choice()
+                .when(header("foo").isEqualTo("bar"))
+                    .to("direct:b")
+                .when(header("foo").isEqualTo("cheese"))
+                    .to("direct:c")
+                .otherwise()
+                    .to("direct:d");
+    }
+};
+----
+
+Spring XML : 
+
+----
+<camelContext errorHandlerRef="errorHandler" xmlns="http://camel.apache.org/schema/spring">
+    <route>
+        <from uri="direct:a"/>
+        <choice>
+            <when>
+                <xpath>$foo = 'bar'</xpath>
+                <to uri="direct:b"/>
+            </when>
+            <when>
+                <xpath>$foo = 'cheese'</xpath>
+                <to uri="direct:c"/>
+            </when>
+            <otherwise>
+                <to uri="direct:d"/>
+            </otherwise>
+        </choice>
+    </route>
+</camelContext>
+
+----
+
+
+=== translator (Message Translator)
+
+image:MessageTranslator.gif[]
+
+Element zmieniający format lub reprezentacje danej wiadomości
+
+----
+from("activemq:SomeQueue").beanRef("myTransformerBean", "myMethodName").to("mqseries:AnotherQueue");
+----
+
+Z użyciem procesora :
+
+----
+from("direct:start").process(new Processor() {
+    public void process(Exchange exchange) {
+        Message in = exchange.getIn();
+        in.setBody(in.getBody(String.class) + " World!");
+    }
+}).to("mock:result");
+----
+
+DSL 
+
+----
+from("direct:start").transform(body().append(" World!")).to("mock:result");
+----
+
+Spring XML : 
+
+----
+<camelContext xmlns="http://camel.apache.org/schema/spring">
+  <route>
+    <from uri="direct:start"/>
+    <transform>
+      <simple>${in.body} extra data!</simple>
+    </transform>
+    <to uri="mock:end"/>
+  </route>
+</camelContext>
+----
+
+** Processor
+
+----
+public class OrderTransformProcessor implements Processor {
+
+public void process(Exchange exchange) throws Exception {
+
+  // do message translation here
+
+ }
+
+}
+
+from("direct:transformOrder").process(new OrderTransformProcessor());
+        
+----
+
+** Bean
+
+----
+public class OrderTransformerBean {
+
+public StringtransformOrder(String body) {
+
+// do message translation here
+
+ }
+
+}
+
+Object transformer = new OrderTransformerBean();
+
+from("direct:transformOrder").bean(transformer);
+----
+
+----
+from("direct:transformOrder").bean(OrderTransformerBean.class);
+----
+
+----
+from("direct:transformOrder").bean(OrderTransformerBean.class, "transformOrder");
+----
+
+Spring DSL : 
+
+----
+<route>
+ <from uri="direct:transformOrder"/>
+ <bean ref="transformer"/>
+</route>
+
+<bean id="tramsformer" class="com.mycompany.OrderTransformBean"/>
+----
+
+** Transform
+
+----
+<route>
+
+<from uri="mina:tcp://localhost:8888?textline=true"/>
+<to uri="jms:queue:order:in"/>
+<transform>
+<constant>ACK</constant>
+</transform>
+</route>
+----
+
+** Adnotacja
+
+----
+@Consume(uri="jms:queue:order:transform")
+public String transformOrder(String body) {
+   // do message translation
+}
+----
+
+
+        
+
+=== punkt końcowy (Message Endpoint)
+
+image:MessageEndpointSolution.gif[]
+
+** Łączy trasy ze sobą nawzajem
+
+** Łączy daną aplikację z danym kanałem wiadomości
+
+** Może być potraktowany jako identyfikator źródła zasobów czy będzie to JMS, czy File jest to obojętne.
+ 
+** Słowo kluczowe "from" - oznacza czytaj z , a słowo "to" - zapis , wyślij do.
+
+
+----
+from("file://local/router/messages/foo").to("jms:Foo.Bar");
+----
+
+
+

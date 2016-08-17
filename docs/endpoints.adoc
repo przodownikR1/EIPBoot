@@ -1,0 +1,525 @@
+:numbered:
+:icons: font
+:pagenums:
+:imagesdir: images
+:iconsdir: ./icons
+:stylesdir: ./styles
+:scriptsdir: ./js
+
+:image-link: https://pbs.twimg.com/profile_images/425289501980639233/tUWf7KiC.jpeg
+ifndef::sourcedir[:sourcedir: ./src/main/java/]
+ifndef::resourcedir[:resourcedir: ./src/main/resources/]
+ifndef::imgsdir[:imgsdir: ./../images]
+:source-highlighter: coderay
+
+== Punkty końcowe 
+
+image:messageEndpoints.png[]
+
+=== brama (Messaging Gateway)
+
+image:MessagingGatewaySolution.gif[]
+
+Pośrednik między aplikacją lub szyną a aplikacją domenową
+
+Określa kontrakt między kodem klienta a warstwą integracji (Apache Camel)
+
+NOTE: CXF, Bean w EIP
+
+ 
+ 
+=== mapper (Messaging Mapper)
+
+image:MessagingMapperClassDiagram.gif[]
+
+Element mapujący aplikację domenową a dalszą infrastukturą
+
+
+----
+from("activemq:foo")
+    .beanRef("transformerBean", "transform")
+    .to("jms:bar");
+----
+
+----
+<route>
+    <from uri="activemq:foo"/>
+    <bean ref="transformerBean" method="transform" />
+    <to uri="jms:bar"/>
+</route>
+----
+
+
+
+=== transakcyjny klient (Transactional Client)
+
+image:TransactionalClientSolution.gif[]
+
+Określa granicę transakcji pomiędzy klientem a systemem transakcyjnym
+
+----
+<bean id="jmsTransactionManager" class="org.springframework.jms.connection.JmsTransactionManager">
+  <property name="connectionFactory" ref="jmsConnectionFactory" />
+</bean>
+ 
+<bean id="jmsConnectionFactory" class="org.apache.activemq.ActiveMQConnectionFactory">
+  <property name="brokerURL" value="tcp://localhost:61616"/>
+</bean>
+----
+
+Rejestracja JMS (activeMq): 
+
+----
+PlatformTransactionManager transactionManager = (PlatformTransactionManager) spring.getBean("jmsTransactionManager");
+ConnectionFactory connectionFactory = (ConnectionFactory) spring.getBean("jmsConnectionFactory");
+JmsComponent component = JmsComponent.jmsComponentTransacted(connectionFactory, transactionManager);
+component.getConfiguration().setConcurrentConsumers(1);
+ctx.addComponent("activemq", component);
+----
+
+----
+<bean id="PROPAGATION_REQUIRED" class="org.apache.camel.spring.spi.SpringTransactionPolicy">
+  <property name="transactionManager" ref="jmsTransactionManager"/>
+</bean>
+ 
+<bean id="PROPAGATION_REQUIRES_NEW" class="org.apache.camel.spring.spi.SpringTransactionPolicy">
+  <property name="transactionManager" ref="jmsTransactionManager"/>
+  <property name="propagationBehaviorName" value="PROPAGATION_REQUIRES_NEW"/>
+</bean>
+----
+
+----
+public void configure() {
+   ...
+   Policy requried = bean(SpringTransactionPolicy.class, "PROPAGATION_REQUIRED"));
+   Policy requirenew = bean(SpringTransactionPolicy.class, "PROPAGATION_REQUIRES_NEW"));
+   ...
+}
+----
+
+----
+// Send to bar in a new transaction
+from("activemq:queue:foo").policy(requirenew).to("activemq:queue:bar");
+ 
+// Send to bar without a transaction.
+from("activemq:queue:foo").policy(notsupported ).to("activemq:queue:bar");
+----
+
+=== transacted
+
+----
+<camelContext xmlns="http://camel.apache.org/schema/spring">
+    <route>
+        <from uri="direct:okay"/>
+        <!-- we mark this route as transacted. Camel will lookup the spring transaction manager
+             and use it by default. We can optimally pass in arguments to specify a policy to use
+             that is configured with a spring transaction manager of choice. However Camel supports
+             convention over configuration as we can just use the defaults out of the box and Camel
+             that suites in most situations -->
+        <transacted/>
+        <setBody>
+            <constant>Tiger in Action</constant>
+        </setBody>
+        <bean ref="bookService"/>
+        <setBody>
+            <constant>Elephant in Action</constant>
+        </setBody>
+        <bean ref="bookService"/>
+    </route>
+ 
+    <route>
+        <from uri="direct:fail"/>
+        <!-- we mark this route as transacted. See comments above. -->
+        <transacted/>
+        <setBody>
+            <constant>Tiger in Action</constant>
+        </setBody>
+        <bean ref="bookService"/>
+        <setBody>
+            <constant>Donkey in Action</constant>
+        </setBody>
+        <bean ref="bookService"/>
+    </route>
+</camelContext>
+----
+
+----
+from("direct:mixed")
+    // using required
+    .transacted("PROPAGATION_REQUIRED")
+    // all these steps will be okay
+    .setBody(constant("Tiger in Action")).bean("bookService")
+    .setBody(constant("Elephant in Action")).bean("bookService")
+    // continue on route 2
+    .to("direct:mixed2");
+ 
+from("direct:mixed2")
+    // tell Camel that if this route fails then only rollback this last route
+    // by using (rollback only *last*)
+    .onException(Exception.class).markRollbackOnlyLast().end()
+    // using a different propagation which is requires new
+    .transacted("PROPAGATION_REQUIRES_NEW")
+    // this step will be okay
+    .setBody(constant("Lion in Action")).bean("bookService")
+    // this step will fail with donkey
+    .setBody(constant("Donkey in Action")).bean("bookService");
+----
+
+=== polling consumer 
+
+image:PollingConsumerSolution.gif[]
+
+Synchroniczny konsument
+
+----
+Endpoint endpoint = context.getEndpoint("activemq:my.queue");
+PollingConsumer consumer = endpoint.createPollingConsumer();
+Exchange exchange = consumer.receive();
+----
+
+----
+Endpoint endpoint = context.getEndpoint("file:inbox?pollingConsumerQueueSize=50");
+PollingConsumer consumer = endpoint.createPollingConsumer();
+Exchange exchange = consumer.receive(5000);
+----
+
+=== ConsumerTemplate
+
+----
+<camelContext xmlns="http://camel.apache.org/schema/spring">
+    <!-- define a producer template -->
+    <template id="producer"/>
+    <!-- define a consumer template -->
+    <consumerTemplate id="consumer"/>
+     
+    <route>
+        <from uri="seda:foo"/>
+        <to id="result" uri="mock:result"/>
+    </route>
+</camelContext>
+----
+
+=== Scheduled Poll Components
+
+** ScheduledPollConsumer
+
+** Scheduler
+
+** Atom
+
+** Beanstalk
+
+** File
+
+** FTP
+
+**  hbase
+
+** iBATIS
+
+** JPA
+
+** Mail
+
+** MyBatis
+
+** Quartz
+
+** SNMP
+
+** AWS-S3
+
+** AWS-SQS
+
+=== event-driven consumer
+
+image:EventDrivenConsumerSolution.gif[]
+
+Asynchroniczny konsument
+
+----
+from("jms:queue:foo").processRef("processor");
+----
+
+=== współzawodniczący klient (Competing Consumers)
+
+image:CompetingConsumers.gif[]
+
+Grupa współzawodniczących ze sobą konsumentów (p2p)
+
+----
+from("jms:MyQueue?concurrentConsumers=5").bean(SomeBean.class);
+----
+
+Spring XML : 
+
+----
+<route>
+  <from uri="jms:MyQueue?concurrentConsumers=5"/>
+  <to uri="bean:someBean"/>
+</route>
+----
+
+NOTE: SEDA, JMS
+
+=== dystrybutor (dispatcher)
+
+image:MessageDispatcher.gif[]
+
+Dystrybuuje wiadomość do wielu konsumentów
+
+Patrz : sekcja Camel 
+
+----
+from("jms:queue:foo?concurrentConsumers=5")
+    .threads(5)
+    .choice()
+        .when(header("type").isEqualTo("A")) 
+            .processRef("messageDispatchProcessorA")
+        .when(header("type").isEqualTo("B"))
+            .processRef("messageDispatchProcessorB")
+        .when(header("type").isEqualTo("C"))
+            .processRef("messageDispatchProcessorC")      
+        .otherwise()
+            .to("jms:queue:invalidMessageType");
+----
+            
+            
+
+
+=== klient selektywny (Selective Consumer)
+
+image:MessageSelectorSolution.gif[]
+
+Klient może konsumować tylko określne wiadomości
+
+----
+RouteBuilder builder = new RouteBuilder() {
+    public void configure() {
+        errorHandler(deadLetterChannel("mock:error"));
+ 
+        from("direct:a")
+            .filter(header("foo").isEqualTo("bar"))
+                .process(myProcessor);
+    }
+};
+----
+
+Spring XMl : 
+
+----
+<bean id="myProcessor" class="org.apache.camel.builder.MyProcessor"/>
+ 
+<camelContext errorHandlerRef="errorHandler" xmlns="http://camel.apache.org/schema/spring">
+    <route>
+        <from uri="direct:a"/>
+        <filter>
+            <xpath>$foo = 'bar'</xpath>
+            <process ref="myProcessor"/>
+        </filter>
+    </route>
+</camelContext>
+----
+
+=== trwały subskrybent (Durable Subscriber)
+
+image:DurableSubscriptionSolution.gif[]
+
+Wiamości będą czekać na przetworzenia do momentu kiedy klient stanie się aktywny.
+
+----
+from("direct:start").to("activemq:topic:foo");
+ 
+from("activemq:topic:foo?clientId=1&durableSubscriptionName=bar1").to("mock:result1");
+ 
+from("activemq:topic:foo?clientId=2&durableSubscriptionName=bar2").to("mock:result2");
+----
+
+Spring XML : 
+
+----
+<route>
+    <from uri="direct:start"/>
+    <to uri="activemq:topic:foo"/>
+</route>
+ 
+<route>
+    <from uri="activemq:topic:foo?clientId=1&durableSubscriptionName=bar1"/>
+    <to uri="mock:result1"/>
+</route>
+ 
+<route>
+    <from uri="activemq:topic:foo?clientId=2&durableSubscriptionName=bar2"/>
+    <to uri="mock:result2"/>
+</route>
+----
+
+=== idempotentny klient (Idempotent Receiver)
+
+** Eliminuje duplikaty komunikatów
+
+**  Podobne zachowanie do idempotencji w REST
+
+** Możliwe wariacje uługi : 
+
+*** MemoryIdempotentRepository
+
+*** FileIdempotentRepository
+
+*** HazelcastIdempotentRepository (od Camel 2.8)
+
+*** JdbcMessageIdRepository (od Camel 2.7)
+
+*** JpaMessageIdRepository
+
+Zależność : 
+
+----
+<dependency>
+    <groupId>org.apache.camel</groupId>
+    <artifactId>camel-jpa</artifactId>
+    <version>x.x.x</version>   
+</dependency>
+----
+
+
+*** InfinispanIdempotentRepository (od 2.13.0)
+
+*** JCacheIdempotentRepository (od Camel 2.17.0)
+
+*** SpringCacheIdempotentRepository (od 2.17.1)
+
+----
+<bean id="repo" class="org.apache.camel.spring.processor.idempotent.SpringCacheIdempotentRepository">
+    <constructor-arg>
+       <bean class="org.springframework.cache.guava.GuavaCacheManager"/>
+    </constructor-arg>
+    <constructor-arg value="idempotent"/>
+</bean>
+ 
+<camelContext xmlns="http://camel.apache.org/schema/spring">
+    <route id="idempotent-cache">
+        <from uri="direct:start" />
+        <idempotentConsumer messageIdRepositoryRef="repo" skipDuplicate="true">
+            <header>MessageId</header>
+            <to uri="log:org.apache.camel.spring.processor.idempotent?level=INFO&amp;showAll=true&amp;multiline=true" />
+            <to uri="mock:result"/>
+        </idempotentConsumer>
+    </route>
+</camelContext>
+
+----
+
+*** EhcacheIdempotentRepository (od 2.18.0)
+
+Zależność: 
+
+----
+<dependency>
+    <groupId>org.apache.camel</groupId>
+    <artifactId>camel-ehcache</artifactId>
+    <version>x.x.x</version>
+</dependency>
+----
+
+
+----
+CacheManager manager = CacheManagerBuilder.newCacheManager(new XmlConfiguration("ehcache.xml"));
+EhcacheIdempotentRepository repo = new EhcacheIdempotentRepository(manager, "idempotent-cache");
+  
+from("direct:in").idempotentConsumer(header("messageId"), idempotentRepo).to("mock:out");
+----
+
+
+Przykłady : 
+
+----
+RouteBuilder builder = new RouteBuilder() {
+    public void configure() {
+        errorHandler(deadLetterChannel("mock:error"));
+ 
+        from("direct:a")
+            .idempotentConsumer(header("myMessageId"),
+                    MemoryIdempotentRepository.memoryIdempotentRepository(200))
+            .to("direct:b");
+    }
+};
+----
+
+
+----
+from("direct:start").idempotentConsumer(
+        header("messageId"),
+        jpaMessageIdRepository(lookup(EntityManagerFactory.class), PROCESSOR_NAME)
+).to("mock:result");
+----
+
+----
+<!-- repository for the idempotent consumer -->
+<bean id="myRepo" class="org.apache.camel.processor.idempotent.MemoryIdempotentRepository"/>
+ 
+<camelContext xmlns="http://camel.apache.org/schema/spring">
+    <route>
+        <from uri="direct:start"/>
+        <idempotentConsumer messageIdRepositoryRef="myRepo">
+            <!-- use the messageId header as key for identifying duplicate messages -->
+            <header>messageId</header>
+            <!-- if not a duplicate send it to this mock endpoint -->
+            <to uri="mock:result"/>
+        </idempotentConsumer>
+    </route>
+</camelContext>
+
+----
+
+** Fitrowanie komunikatów
+
+
+----
+
+from("direct:start")
+    // instruct idempotent consumer to not skip duplicates as we will filter then our self
+    .idempotentConsumer(header("messageId")).messageIdRepository(repo).skipDuplicate(false)
+    .filter(property(Exchange.DUPLICATE_MESSAGE).isEqualTo(true))
+        // filter out duplicate messages by sending them to someplace else and then stop
+        .to("mock:duplicate")
+        .stop()
+    .end()
+    // and here we process only new messages (no duplicates)
+    .to("mock:result");
+----
+
+
+
+=== service activator (Service Activator)
+
+image:MessagingAdapterSolution.gif[]
+
+Fasada dostępu do usługi. 
+
+NOTE:  BeanProcessor w Apache Camel (odsługuje obiekty POJO)
+
+** Kroki działania
+
+*** Wyszukanie bean'a w rejestrze
+
+*** Wyszukuje metody do wywołania 
+
+NOTE: @Handler
+
+*** Dopasowuje parametry do wywołanej metody
+
+*** Wywołuje metodę
+
+*** Obsługuje potencjalne błędy
+
+*** Wynik wywołania jest ustawiany jako wyjściowa wiadomość
+
+
+** Wyjątki
+
+***  MethodNotFoundException
+
+*** AmbigiousMethodCallException 
+
+*** NoTypeConversionAvailableException 

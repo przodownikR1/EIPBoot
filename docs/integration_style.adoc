@@ -1,0 +1,254 @@
+:numbered:
+:icons: font
+:pagenums:
+:imagesdir: images
+:iconsdir: ./icons
+:stylesdir: ./styles
+:scriptsdir: ./js
+
+:image-link: https://pbs.twimg.com/profile_images/425289501980639233/tUWf7KiC.jpeg
+ifndef::sourcedir[:sourcedir: ./src/main/java/]
+ifndef::resourcedir[:resourcedir: ./src/main/resources/]
+ifndef::imgsdir[:imgsdir: ./../images]
+:source-highlighter: coderay
+
+== Style integracji
+
+image:integrationStyles.png[]
+
+
+=== Shared database - wspólna baza danych
+
+source:www.enterpriseintegrationpatterns.com
+
+image:shared_database.png[]
+
+** Features : 
+
+*** wszystkie dane opierają się na tej samej bazie danych. Gwarancja spójności.
+
+*** wiele formatów plików (File transfer) = wiele potencjalnych problemów
+
+*** gdy aplikacja mu być dystrybuowana na wielu komputerach baza danych musi być również replikowana
+
+** Zalety :
+
+*** lepsze walidacja i spójność danych niż w przypadku File Transfer
+ 
+*** łatwiej wykryć i poprawić ewentualne rozbieżności w formatach danych
+
+*** najbardziej popularna forma integracji
+
+*** szybkość implementacji i prostota rozwiązania 
+
+** Wady :
+
+*** opracowanie jednego jednolitego schematu dla wszystkich kontraktorów systemu
+
+*** przechowuje dane razem kosztem sprzęgania.
+
+*** ujawnia strukturę i szczegóły implementacji
+
+*** zmiana schematu powoduje zmianę u klientów
+
+***
+
+TIP : NOSQL = schema free
+
+*** potencjalne przyczyny wąskich gardeł : locks
+
+*** rozproszona baza danych z konfliktem (locking conflict) może stać się koszmarem jeśli chodzi o wydajność
+
+*** baza danych zbyt odsłania struktury danych co kłóci się z ideą enkapsulacji, a taki kod jest trudniejszy w utrzymaniu.
+
+*** tracimy wysoką spójność i luźne wiązania
+
+*** mała elasyczność zmiany rozwiązania np przejście na nosql
+
+
+
+TIP : Do umożliwienia częstej wymiany małych ilości danych przy użyciu jednego formatu na typ danych użyj RPC, w przypadku uniwersalnego formatu lepiej sprawdzi się Messaging. 
+
+=== File transfer - wspólny zasób plikowy
+
+source:www.enterpriseintegrationpatterns.com
+
+image:FileTransferIntegration.gif[]
+
+Aplikacja produkuje pliki zawierające informację potrzebne do integracji. Druga aplikacja konsumuje je w określonych odstępach czasu albo przez ciągły monitoring (polling) zasobu. Następnie musi wziąć odpowiedzialność za transformowanie plików do spójnych czytelnych formatów.
+
+** Features :
+
+***  systemy budowane w różnym czasie - problem wyboru technologii
+
+*** systemy budowane przez różnych ludzi, różne podejścia (preferencje)
+
+*** wybór formatu pliku
+
+*** dostępność pliku, periodyczność wytwarzania czy konsumncji
+
+** Zalety :
+
+*** uniwersalny mechanizm przechowywania danych, dostępny w każdym  systemie
+
+*** nie potrzeba jest wiedza na temat wewnętrznej części aplikacji (jedynie warunki negocjacji integratorów systemów)
+
+*** nie wymaga skomplikowanej konfiguracji jak np : MOM
+
+**  Wady : 
+
+*** integracja zazwyczaj wymaga więcej pracy od dewelopera (nazewnictwo, parsowanie, transformacje, kopie zapasowe, polityka postępowania z plikami)
+
+*** zastosowanie mechanizmów blokujących (jeśli plik nadpisywany jest strumieniowo, klient nie może go odczytać aż do skończenia pisania)
+
+*** brak szybkiej synchronizacji
+
+*** duże koszty przetwarzania i obsługi zasobów dyskowych (I/O)
+
+*** walidacja i niespójność danych 
+
+*** zachowanie izolacji między systemami kosztem aktualności danych. (Systemy nie nadążają za sobą, współpraca jest zbyt wolna)
+  
+TIP : jeśli zależy Ci na umożliwieniu częstej wymiany małych ilości danych bardziej odpowiednie będzie użycie RPC lub Messaging.
+
+
+
+
+
+===  RPC - czyli wywołania zdalne
+
+source:www.enterpriseintegrationpatterns.com
+
+image:EncapsulatedSynchronousIntegration.gif[]
+
+** Features :
+ 
+*** samo udostępnianie danych często nie wystarcza. Częste zmiany danych mogą prowadzić do poważnych zmian w różnych aplikacjach.
+
+*** wywołanie funkcji w jednej aplikacji wraz z przekazaniem informacji jak te dane ma procesować
+
+*** RPC , Corba , Remoting, RMI, WS, REST
+
+** Zalety :
+
+*** lepsze enkapsulacja niż w przypadku podejścia Shared database
+
+*** każda aplikacja z osobna jest wstanie utrzymać integralność swoich danych
+
+*** każda aplikacja może zmienić swoje dane wewnętrzne bez żadnego negatywnego wpływu na drugą aplikację.
+
+*** wsparcie dla transakcji
+
+*** użycie WS nie koliduje z regułami firewalla
+
+*** eliminacja wspólnych dużych struktur danych, zmniejszenie sprzężenia pomiędzy systemami
+
+
+** Wady :
+
+*** negocjowanie interfejsu z innymi systemami podlegającymi integracji
+
+*** duże różnice w wydajności pomiędzy wywołaniem zdalnym a lokalnym
+
+*** tight couple (ciasne wiązanie)
+
+*** nieodporny na uszkodzenia lub chwilową niedostępność innego systemu
+
+Tip : W celu częstej wymiany małych ilości informacji, bez żadnego narzutu na sprzężenie i obawy na wydajność lepiej sprawdzi się Messaging.
+
+
+=== Messaging - komunikacja systemów poprzez systemy kolejek (loose coupling)
+
+source:www.enterpriseintegrationpatterns.com
+
+image:Messaging.gif[]
+
+** Pojęcia kluczowe w messagingu :
+
+** broker (broker) – odpowiednik poczty
+Zapewnia on dostarczenie wiadomości do określonego adresata . Klient nie musi posiadać żadnej wiedzy jak broker sobie z tym poradzi – to jest dla niego
+przezroczyste.
+
+** miejsce docelowe (destination) – rodzaj adresu pocztowego
+Określają gdzie komunikat będzie odebrany, nie na tym kto go odbierze
+
+*** Rozróżniamy dwa rodzaje miejsc docelowych :
+
+*** kolejki (Queue)
+
+Punkt-punkt czyli P2P (point-to-point) w przypadku kolejek
+W modelu P2P każdy komunikat ma jednego dostawce i jednego odbiorcę
+Broker umieszcza komunikat w kolejce. Odbiorca zgłasza się po komunikat
+komunikat jest pobierany z kolejki i dostarczany odbiorcy.
+Podczas dostarczania komunikat jest usuwany z kolejki stąd pewność, że trafi on tylko do jednego odbiorcy.
+Komunikaty z kolejki mogą być przetwarzane przez dowolną liczbę odbiorców
+Analogią takiego działania może być kolejka do kasy
+
+Zastosowanie P2P :
+ - klaster usług
+ - load balancing – czyli równoważnie obciążenia na zasadzie pull, nie push
+   Jeśli usługa jest nadmiernie przeciążona wystarczy dodać kilka nowych    instancji usług (MDB) odbierających komunikaty z danej kolejki
+
+ - kosztowne czynności, których rezultatów nie musimy mieć od razu
+ - komunikacja pozbawiona blokowania (asynchroniczność)
+ - wysoka skalowalność
+ - łatwa priorytyzacja
+ - integracja
+ - luźne sprzeżenia
+ - większa wydajność przy słabym łączu
+ - szeregowanie transakcji
+ - routing
+ - strategia Master-Slave
+
+
+*** tematy (Topic)
+
+Publikacja-Subskrypcja czyli (publish-subscribe) w przypadku tematów
+W tym modelu komunikaty są wysyłane do tematów.
+Wiele odbiorów nasłuchuje kanał jak w przypadku kolejek ale w modelu Pub-Sub wszyscy subskrybenci dostają kopie tematu.
+
+Analogia : gazeta – prenumerata, czyli każdy kto zaprenumeruje daną gazetę
+otrzymuję np. co tydzień identyczny egzemplarz
+
+
+** Features :
+
+*** niezależny od platformy
+
+*** niezależny od języka i systemu
+
+** Zalety 
+
+** totalnie luźnie wiązanie
+
+Luźne wiązanie + rozprężenie (loose coupling + decoupling) – klient nie musi wiedzieć nic o serwerze. Integracja różnych systemów napisanych w różnych technologiach. Klient nie jest uzależniony od konkretnego adresu usługi jak w przypadku komunikacji HTTP
+
+** mechanizm ponawiania
+
+** gwarancja dostarczenia (quaranteed delivery) 
+
+** mechanizm persystencji Trwałość komunikatu (durable)
+
+** odporny na uszkodzenia lub chwilową niedostępność danego systemu
+
+Niezawodność (reliability) - klient nie jest uzależniony od dostępności zdalnej  usługi 
+
+** ogólna odporność (robustness)
+ 
+** obsługa asynchronicznych komunikatów - odpowiednia reakcja na problemy występujący w systemach rozproszonych.  
+
+** Asynchroniczność – klient nie czeka, aż usługa zostanie przetworzona (wydajność) czyli brak blokowania. Usługa typu file-and-forget.
+
+*** mniej punktów awarii (fewer points of failure)
+
+*** łatwa transformacja i routowanie wiadomości  np : XPath
+
+*** brak wrażliwości na zmianę koncepcji czy interfejsu zdalnej usługi, dla klienta jest to nadal przezroczyste. (dobry przykład to WS czy REST)
+
+*** koncentracja na danych zamiast wywołaniu metody jak w przypadku komunikacji RPC
+
+** Wady 
+
+*** trudniejsza implementacja
+
+*** trudniej testować i debugować

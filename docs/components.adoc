@@ -1,0 +1,568 @@
+:numbered:
+:icons: font
+:pagenums:
+:imagesdir: images
+:iconsdir: ./icons
+:stylesdir: ./styles
+:scriptsdir: ./js
+
+:image-link: https://pbs.twimg.com/profile_images/425289501980639233/tUWf7KiC.jpeg
+ifndef::sourcedir[:sourcedir: ./src/main/java/]
+ifndef::resourcedir[:resourcedir: ./src/main/resources/]
+ifndef::imgsdir[:imgsdir: ./../images]
+:source-highlighter: coderay
+
+source: camel.apache.org
+
+image:camel-components.png[]
+
+== Direct component.
+Często zachodzi potrzeba rozdzielenia trasy na kilka mniejszych logicznych części :
+  - zakresy transakcji
+  - obsługa błędów
+  - testability
+  - reuse (re-używalność)
+  - simplicity (łatwość developmentu oraz zrozumienia działania)
+
+Działanie : synchroniczne wywołania w tym samym kontekście i VM
+
+
+Direct jest wyzwalany jakimś komunikatem. Czyli tak naprawdę jest konsumentem komunikatu (consumer) zainicjowanym do działania poprzez producer'a komunikatu.
+Nazwa w postaci wzorca URI odseparowana ':' zawierająca jedynie znaki alfanumeryczne. 
+Musi być unikalna w obrębię całego kontekstu camela (CamelContext).
+
+[source,xml]
+----
+<route>
+  <from uri="timer://start?fixedRate=true&amp;period=1000"/>
+  <to uri="direct:nextAction"/>
+</route>
+
+
+<route>
+   <from uri="direct:nextAction"/>
+     <to uri="log://pl.java.scalatech?level=INFO"/>
+     <to uri="mock:end"/>
+</route>
+----
+
+
+== SEDA (Staged Event Driven Architecture) component. 
+
+** Działanie i zastosowanie podobne jak w stosunku do Direct component z tą różnicą, że działa asynchronicznie .
+
+** ten sam kontekst
+
+** Implementacja BlockingQueue  w pamięci.
+
+** Może być wykorzystywana jako zamiennik kolejki JMS.
+
+** Pozwala to konsumować wiadomość za wiadomością nie czekając , że przejdą one cała trasę i processing. Dopiero gdy wiadomości będą prze-procesorowane zaczną wracać do początku trasy. 
+
+Zastosowanie : 
+
+** **Dla obsługi długo wykonujących się zadań (long running task) (Nie blokuje tras)**
+
+** one way message (InOnly) - (aka fire and forget) - wysyłający nie oczekuje odpowiedzi odbiorcy
+
+Jeśli MEP jest ustawiony na InOnly , producent wkłada do SEDA komunikaty nie czekają na odpowiedź.
+
+----
+from("activemq:someQueue").inOnly("seda:nextRoute");
+----
+
+----
+from("mq:someQueue").setExchangePattern(ExchangePattern.InOut).to("mock:result");
+----
+
+** request/reply (InOut) - wysyłający oczekuje na odpowiedź od odbiorcy
+
+Jeśli MEP jest ustawiony na InOut producent będzie czekał aż poprzednia wiadomość zostanie przetworzona lub wystąpi timeout.
+
+
+NOTE: ** EIP Competing Consumers** dla  concurrentConsumers > 1 , wiadomość dostarczona tylko do jednego z wielu odbiorców podczas współbieżnego procesowania
+
+NOTE: ** EIP  Publish-Subscribe ** dla multipleConsumers = TRUE - każdy odbiorca otrzymuje kopie wiadomości
+
+
+** waitForTaskToComplete
+
+*** Always = zawsze czeka na przeprocesowanie
+
+*** Never  = zapobiega powyższej sytuacji
+
+----
+seda:commands?concurrentConsumers=100&amp;waitForTaskToComplete=Never
+----
+
+
+
+== Producer (producent)
+
+** ProducerTemplate** - to prosty sposób wysyłania wiadomości do Camelowego Endpointu. Działanie i koncepcja jest bardzo podobna ze znanych mechanizmów templates w Springu np JmsTemplate czy RestTemplate.
+W obu przypadkach dostajemy wygodne API, które upraszcza nam w znacznym stopniu wywołania lub obsługę różnych mechanizmów, przy enkapsulacji logiki.
+ Ważne jest to , że : 
+ -  send method = InOnly style
+ -  request method = InOut style
+ Dla asynchronicznego wysyłania użyj asyncSendBody - odpowiedź za pomocą Future<?>
+
+Przykład użycia : 
+
+[source,java]
+----
+//standard use
+ProducerTemplate producerTemplate = camelContext.createProducerTemplate();
+template.sendBody("direct:start", "hello world");
+
+//use @EndpiuntInject
+public class Foo {
+  @EndpointInject(uri="activemq:foo.bar")
+  ProducerTemplate producer;
+ 
+  public void doSomething() {
+    if (whatever) {
+      producer.sendBody("Hello world");
+    }
+  }
+}
+//hidding camel API
+public interface MyListener {
+    String sayHello(String name);
+}
+ 
+public class MyBean {
+    @Produce(uri = "activemq:foo")
+    protected MyListener producer;
+ 
+    public void doSomething() {
+        // lets send a message
+        String response = producer.sayHello("James");
+    }
+}
+----
+
+
+== Consumer (konsumer)
+
+**ConsumerTemplate** - tak jak w przypadku producera tym razem konsumujemy komunikat.
+
+Pracuje tylko z trybem InOnly.
+
+Przykład :
+
+[source,java]
+----
+ConsumerTemplate consumerTemplate = camelContext().createConsumerTemplate();
+String result = consumerTemplate.receiveBody("jms:invoiceQueue",String.class)
+----
+
+
+
+== Content-Based Router 
+
+** Odpowiednik instrukcji switch lub if-else if w javie
+
+Zastosowanie : Routing komunikatów do różnych i odpowiednich tras bądź zasobów
+
+Działanie :  określa punkt przekierowania zasobów na podstawie contentu.
+
+** Content w tym przypadku to :
+
+***   header
+
+***   typ payload (body)
+
+***   treść payload (body)
+
+
+[source,xml]
+----
+<camelContext xmlns="http://camel.apache.org/schema/spring">
+    <route>
+        <from uri="direct:invoiceStart"/>
+        <choice>
+            <when>
+                <xpath>$type = 'buisness'</xpath>
+                <to uri="direct:buisness-part"/>
+            </when>
+            <when>
+                <xpath>$type = 'personal'</xpath>
+                <to uri="direct:personal-part"/>
+            </when>
+            <otherwise>
+                <to uri="direct:other-part"/>
+            </otherwise>
+        </choice>
+    </route>
+</camelContext>
+----
+
+[source,java]
+----
+from("file://invoice").choice()
+ .when(simple("${in.header.CamelFileName} contains 'business.txt'")).to("file://business")
+ .when(simple("${in.header.CamelFileName} contains 'personal.txt'")).to("file://personal")
+ .otherwise()
+ .to("log://pl.java.scalatech?showAll=true");
+
+//next example 
+from("file://invoice").choice()
+   .when(businessPredicate)
+   .to("file://business")
+   .when(personalPredicate)
+   .to("file://personal").otherwise().to("log://pl.java.scalatech?showAll=true");
+   
+// you can use Predicate interface
+public interface Predicate {
+   boolean matches(Exchange exchange);
+} 
+----
+
+----
+.when(header("CamelFileName").regex("^.*(csv|xml)$"))
+
+.when(header("CamelFileName").endsWith(".xml"))
+
+.when(simple("${in.header.CamelFileName} contains 'personal.txt'"))
+
+.when(header("type").isEqualTo("business"))
+----
+
+
+
+
+==  Multicast 
+
+** Wysyłanie tego samego komunikatu do różnych miejsc w celu innego procesowania komunikatu. 
+
+Domyślnie komunikaty są przetwarzane sekwencyjne w pipe'ie.
+Można włączyć przetwarzanie równoległe bez czekania na przetworzenie komunikatu w kolejnym węźle - parallel
+Przykład : 
+
+[source,java]
+----
+from("jms:invoice").multicast().to("jms:account", "jms:payment");
+
+//parallel
+
+from("direct:invoice").multicast().parallelProcessing().to("direct:account", "direct:payment");
+
+//executors
+//default 10 thread in pool
+
+ExecutorService executor = Executors.newFixedThreadPool(16);
+from("direct:invoice").multicast().parallelProcessing().executorService(executor).to("direct:account", "direct:payment");
+
+//exception handling
+
+from("direct:invoice").multicast().stopOnException().parallelProcessing().executorService(executor).to("direct:account", "direct:payment");
+----
+
+
+----
+<multicast stopOnException="true" parallelProcessing="true" executorServiceRef="myExecutor">
+----
+
+Tip : Error handling - stopOnException()
+
+Tip : Równoległe wysyłanie do procesowanie - .parallelProcessing()
+
+NOTE: statyczny Recipient List  == multicast
+
+NOTE: dynamiczne wybór odbiorców to  **dynamic recipient list** lub po prostu **recipient list**
+
+
+== The Delayer EIP
+
+Pozwala wprowadzić opóźnienie w kanale wiadomości
+
+----
+from("seda:b").delay(1000).to("mock:result");
+
+from("activemq:someQueue").delay(header("delayValue")).to("activemq:aDelayedQueue");
+
+from("seda:a").delay().header("MyDelay").to("mock:result");
+
+from("seda:c").delay().method(bean, "delayMe").to("mock:result");
+----
+
+lub Xml : 
+
+----
+<route>
+   <from uri="activemq:queue:foo"/>
+   <delay asyncDelayed="true">
+       <constant>1000</constant>
+   </delay>
+   <to uri="activemq:aDealyedQueue"/>
+</route>
+----
+
+
+== Recipient List
+
+image:RecipientList.gif[]
+
+Dynamiczna decyzja gdzie ma trafić wiadomość do konkretnego punktu końcowego czy zbioru takich punktów.
+
+----
+from("file:orders").setHeader("language").xpath("/order/customer/@language").recipientList().simple("file:orders/${header.language}");
+----
+
+lub Xml : 
+
+----
+<route>
+<from uri = "file:orders"/>
+ <setHeader headerName= "language">
+   <xpath>/order/customer/@language</xpath>
+ </setHeader>
+ <recipientList>
+   <simple>file:orders/${header.language}</simple>
+ </recipientList>
+</route>
+----
+
+----
+from("direct:start").setHeader("endpointsToBeTriggered")
+.method(MyMessageRouter.class,"getDestinations")
+.recipientList(header("endpointsToBeTriggered"));
+----
+
+----
+public class MyMessageRouter {
+public String getDestinations (Exchange exchange) {
+ String orderType = exchange.getIn().getHeader("type", String.class);
+if (type == null) {
+  return "direct:unrecognized";
+} else if (type.equals("high")) {
+   return "direct:invoice.priorityHigh,direct:billing";
+} else {
+   return "direct:invoice.priorityLow,direct:stage";
+  }
+ }
+}
+----
+
+=== ignoreInvalidEndpoints() 
+
+anulowanie błędych punktów końcowych
+
+
+== Dynamic Router
+
+image:DynamicRouter.gif[]
+
+Dynamiczne zarządzanie sekwencją wywołań punktów końcowych 
+
+
+----
+from("direct:start")
+    // use a bean as the dynamic router
+    .dynamicRouter(method(DynamicRouterTest.class, "slip"));
+----
+
+----
+public String slip(String body) {
+    bodies.add(body);
+    invoked++;
+ 
+    if (invoked == 1) {
+        return "mock:a";
+    } else if (invoked == 2) {
+        return "mock:b,mock:c";
+    } else if (invoked == 3) {
+        return "direct:foo";
+    } else if (invoked == 4) {
+        return "mock:result";
+    }
+ 
+    // no more so return null
+    return null;
+}
+----
+
+Spring XML:
+
+----
+<bean id="mySlip" class="org.apache.camel.processor.DynamicRouterTest"/>
+ 
+<camelContext xmlns="http://camel.apache.org/schema/spring">
+    <route>
+        <from uri="direct:start"/>
+        <dynamicRouter>
+            <!-- use a method call on a bean as dynamic router -->
+            <method ref="mySlip" method="slip"/>
+        </dynamicRouter>
+    </route>
+ 
+    <route>
+        <from uri="direct:foo"/>
+        <transform><constant>Bye World</constant></transform>
+    </route>
+ 
+</camelContext>
+----
+
+=== @DynamicRouter
+
+----
+public class MyDynamicRouter {
+ 
+    @Consume(uri = "activemq:foo")
+    @DynamicRouter
+    public String route(@XPath("/customer/id") String customerId, @Header("Location") String location, Document body) {
+        // query a database to find the best match of the endpoint based on the input parameteres
+        // return the next endpoint uri, where to go. Return null to indicate the end.
+    }
+}
+----
+
+
+== Seda
+
+
+It is possible to define multiple routes that consume from the same logical name, unlike a direct
+
+----
+uri="seda:longRunningPhase?concurrentConsumers=15"
+----
+
+----
+from("seda:timerEvents?multipleConsumers=true")
+// define one set of routing logic here
+----
+
+
+
+== Direct
+
+** Synchroniczny ten sam kontekst
+
+----
+<route>
+<from uri="timer://start?fixedRate=true&amp;period=1000"/>
+<to uri="log://org.apache.camel.generator?level=INFO"/>
+<to uri="direct:logger"/>
+</route>
+----
+
+
+== SEDA
+
+** Asynchroniczny ten sam kontekst
+
+** Implementacja w pamięci
+
+** Imitacja JMS
+
+
+
+
+== VM & DIRECT-VM
+
+Uruchamianie na innych kontekstach Camela ale na tym samym JVM
+
+SEDA -> VM
+
+Direct -> Direct-vm
+
+
+== Jetty
+
+----
+from("jetty:http://localhost:8080/SayHello").process(new ReplaySimpleHtml());
+----
+
+----
+public class ReplaySimpleHtml implements Processor {
+    public void process(Exchange exchange) throws Exception {        
+        String body = exchange.getIn().getBody(String.class);        
+        HttpServletRequest req = exchange.getIn().getBody(HttpServletRequest.class);
+        // send a html response
+        exchange.getOut().setBody("<html><body><H1>Hello world</H1></body></html>");
+    }
+}
+----
+
+
+== Quartz
+
+----
+quartz2://timerName?options
+quartz2://groupName/timerName?options
+quartz2://groupName/timerName?cron=expression
+quartz2://timerName?cron=expression
+----
+
+----
+<route id="quartz2Route">
+        <from uri="quartz2://myGroup/myTimer?cron=0+0/1+09-23+?+*+MON-SUN"></from>
+        <setheader headername="CamelFileName">
+            <simple>MyJob-${date:now:yyyyMMdd HH:mm:ss}.txt</simple>
+        </setheader>
+        <setbody>
+            <simple>${date:now:yyyyMMdd HH:mm:ss} Hello THis is the content of text </simple>
+        </setbody>
+        <to uri="sftp://demo@localhost?password=ZAQ!2wsx">
+    </to></route>
+----
+
+== Http 
+
+
+----
+ @Override
+    public void configure() throws Exception {
+        final XmlJsonDataFormat xmlJsonFormat = new XmlJsonDataFormat();
+        xmlJsonFormat.setForceTopLevelObject(true);
+        from("file:src/main/resources/reservations?noop=true")
+                .marshal(xmlJsonFormat)
+                .log("xml to json")
+                .convertBodyTo(String.class)
+                .setHeader(Exchange.HTTP_QUERY, simple("body=${body}"))
+                .to("http4://localhost:8080/reserve");
+    }
+
+
+ @RequestMapping("/reserve")
+    public HttpStatus reserve(@RequestParam String body){
+        this.fileWriterService.writeFile(this.PATH,body,this.reservationCounter,".json");
+        this.reservationCounter++;
+        return HttpStatus.OK;
+    }
+----
+
+== Mongo
+
+----
+@Override
+    public void configure() throws Exception {
+
+        final XmlJsonDataFormat xmlJsonFormat = new XmlJsonDataFormat();
+        xmlJsonFormat.setForceTopLevelObject(true);
+
+        from("file:src/main/resources/screenings?noop=true")
+                .marshal(xmlJsonFormat)
+                .log("xml to json")
+                .unmarshal().json(JsonLibrary.Jackson, ScreeningDTO.class)
+                .to("mongodb:mongoBean?database=workflow&collection=screenings&operation=insert").log("written to mongoDB");
+
+    }
+----
+
+
+== Mail 
+
+----
+from("direct:mail")
+                .process(new Processor() {
+                    @Override
+                    public void process(Exchange exchange) throws Exception {
+                        System.out.println();
+                    }
+                })
+ .recipientList(simple("smtps://smtp.gmail.com?username=user1@gmail.com&password=passwd&to=${property[mail]}&subject=Your account&contentType=text/html."));
+
+    }
+----

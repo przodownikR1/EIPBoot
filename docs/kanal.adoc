@@ -1,0 +1,167 @@
+:numbered:
+:icons: font
+:pagenums:
+:imagesdir: images
+:iconsdir: ./icons
+:stylesdir: ./styles
+:scriptsdir: ./js
+
+:image-link: https://pbs.twimg.com/profile_images/425289501980639233/tUWf7KiC.jpeg
+ifndef::sourcedir[:sourcedir: ./src/main/java/]
+ifndef::resourcedir[:resourcedir: ./src/main/resources/]
+ifndef::imgsdir[:imgsdir: ./../images]
+:source-highlighter: coderay
+
+== Kanał
+
+image:messangingChannels.png[]
+
+=== punkt-punkt 
+
+image:PointToPointSolution.gif[]
+
+** **SEDA** i  **VM** dla komunikacja pomiędzy trasami
+
+** Zapewnienie że tylko jeden odbiornik pobierze wiadomość
+
+** JMS , praca z kolejkami
+
+Komponenty które wspiera Apache Camel:
+
+** JMS
+
+** ActiveMQ
+
+** SEDA
+
+** JPA
+
+** XMPP
+
+
+=== publish-subscribe 
+
+image:PublishSubscribeSolution.gif[]
+
+** JMS jako Topic
+
+** każda z wiadomości może być skonsumowana przez wiele odbiorników
+
+** **SEDA** i **VM** z parametrem **multipleConsumers=true**
+
+Komponenty które wspiera Apache Camel:
+
+** JMS
+
+** ActiveMQ
+
+** XMPP
+
+** SEDA
+ 
+** VM
+
+
+=== datatype channel 
+image:DatatypeSolution.gif[]
+
+Przekazywanie wiadomości oraz nośnik  jak daną wiadomość skonsumować
+
+
+NOTE: Brak odpowiednika w Apache Camel
+
+=== invalid message 
+
+image:InvalidMessageSolution.gif[]
+
+
+Gromadzenie informacje które odbiornik uznał za niepoprawne
+
+Note: Brak odpowiednik w Apache Camel
+
+=== dead letter 
+
+image:DeadLetterChannelSolution.gif[]
+
+** Gromadzi wiadomości, które nie dotarły do odbiorcy z powodu napotkanych awarii  
+
+** Jeden ze sposobów obsługi błędów w Apache Camel
+
+** Wsparcie dla polityki ponawiania
+
+** Często stosowany podczas messagingu
+
+----
+errorHandler(deadLetterChannel("jms:queue:dead").maximumRedeliveries(3).redeliveryDelay(5000));
+----
+
+jako Spring XML : 
+
+----
+<route errorHandlerRef="myDeadLetterErrorHandler">
+   ...
+</route>
+ 
+<bean id="myDeadLetterErrorHandler" class="org.apache.camel.builder.DeadLetterChannelBuilder">
+    <property name="deadLetterUri" value="jms:queue:dead"/>
+    <property name="redeliveryPolicy" ref="myRedeliveryPolicyConfig"/>
+</bean>
+ 
+<bean id="myRedeliveryPolicyConfig" class="org.apache.camel.processor.RedeliveryPolicy">
+    <property name="maximumRedeliveries" value="3"/>
+    <property name="redeliveryDelay" value="5000"/>
+</bean>
+----
+
+----
+errorHandler(deadLetterChannel("jms:queue:dead")
+   .useOriginalMessage().maximumRedeliveries(5).redeliverDelay(5000)
+----
+
+=== Redelivery
+
+----
+errorHandler(deadLetterChannel("seda:errors").maximumRedeliveries(2).useExponentialBackOff());
+from("seda:a").to("seda:b");
+----
+
+=== gwarantowana dostawa 
+
+image:GuaranteedMessagingSolution.gif[]
+
+Gwarancja dostraczenia wiadomości.
+
+Wspierane komponenty przez Apache Camel: 
+
+** JMS
+
+** ActiveMQ
+
+** File Component
+
+
+=== adapter 
+
+image:ChannelAdapterSolution.gif[]
+
+Element pośredniczący pomiędzy aplikacją a szyną czy MOM
+
+=== most 
+
+image:MessagingBridge.gif[]
+
+Łączy dwa niezależne kanały lub szyny danych
+
+
+----
+from("myJmsComponentA:endpointX").to("myJMSComponentB:endpointX"); 
+
+from("myJmsComponentA:endpointY").to("myJMSComponentB:endpointY"); 
+ 
+----
+
+=== magistrala 
+
+image:MessageBusSolution.gif[]
+
+Uspójniony zestaw operacji bądź usług umożliwiający ich wzajemną komunikację.

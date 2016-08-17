@@ -1,0 +1,78 @@
+@Component
+public class HelloRouter extends FatJarRouter {
+
+    @Override
+    public void configure() {
+
+        // configure to use jetty on localhost with the given port and enable auto binding mode
+        restConfiguration()
+                .component("jetty")
+                .host("0.0.0.0").port(9090)
+                .bindingMode(RestBindingMode.json)
+                .dataFormatProperty("json.in.disableFeatures", "FAIL_ON_UNKNOWN_PROPERTIES, ADJUST_DATES_TO_CONTEXT_TIME_ZONE")
+                .dataFormatProperty("json.in.enableFeatures", "FAIL_ON_NUMBERS_FOR_ENUMS, USE_BIG_DECIMAL_FOR_FLOATS")
+                .apiContextPath("/api-doc")
+                .apiProperty("api.title", "API")
+                .apiProperty("api.version", "1.0.0")
+                .apiProperty("cors", "true");
+
+        rest("/say")
+                .description("Say hello")
+                .consumes("application/json")
+                .produces("application/json")
+                .get("/hello")
+                .route()
+                .routeId("Hello REST")
+                .transform().constant("Say hello to REST!");
+    }
+
+}
+
+===
+@Configuration
+public class RedisConfig {
+
+    @Bean
+    JedisConnectionFactory jedisConnectionFactory() {
+
+        return new JedisConnectionFactory();
+    }
+
+    @Bean
+    public RedisTemplate<String, Object> redisTemplate() {
+
+        final RedisTemplate<String, Object> redisTemplate = new RedisTemplate<>();
+
+        redisTemplate.setConnectionFactory(jedisConnectionFactory());
+        redisTemplate.setValueSerializer(new GenericToStringSerializer<>(Object.class));
+
+        return redisTemplate;
+    }
+
+}
+
+====
+
+public class MyRouteBuilder extends RouteBuilder {
+
+
+    public void configure() {
+
+        from("timer://pollenrich-timer?repeatCount=1")
+        .routeId("pollEnrich-route")
+        .pollEnrich("file://src/main/resources?fileName=file.txt&noop=true&delay=10m&idempotent=false&delete=false")
+        .log("${body}");
+        
+        from("timer://enrich-timer?repeatCount=1&delay=5s")
+        .routeId("enrich-route")
+        .enrich("http4://www.canihazip.com/s")
+        .log("${body}");
+    }
+
+}
+
+======
+
+https://github.com/gofore/camel-coaching/blob/master/eip/splitter-aggregator/src/main/java/com/gofore/MyRouteBuilder.java
+
+

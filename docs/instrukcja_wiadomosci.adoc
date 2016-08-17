@@ -1,0 +1,180 @@
+:numbered:
+:icons: font
+:pagenums:
+:imagesdir: images
+:iconsdir: ./icons
+:stylesdir: ./styles
+:scriptsdir: ./js
+
+:image-link: https://pbs.twimg.com/profile_images/425289501980639233/tUWf7KiC.jpeg
+ifndef::sourcedir[:sourcedir: ./src/main/java/]
+ifndef::resourcedir[:resourcedir: ./src/main/resources/]
+ifndef::imgsdir[:imgsdir: ./../images]
+:source-highlighter: coderay
+
+== Konstrukcja wiadomości  (Message Construction)
+
+image:messageConstruction.png[]
+
+Dokument do przetworzenia  
+
+
+=== komenda (Command Message)
+
+image:CommandMessageSolution.gif[]
+
+Możliwość wykonania procedury w  innym zdalnym systemie (RPC-style integration)
+
+=== zdarzenie  (Event message)
+
+image:EventMessageSolution.gif[]
+
+** Zdarzenie na które możę zaragować system
+
+** InOnly -> one way message
+
+** Ukierunkowane w jedną stronę (one directional messages) / oznacza to również asynchroniczność
+
+----
+<route>
+<from uri="direct:start"/>
+<inOnly uri="bean:myBean"/>
+</route>
+----
+
+to samo co :
+
+----
+<route>
+<from uri="direct:start"/>
+<setExchangePattern pattern="InOnly"/>
+<to uri="bean:myBean"/>
+</route>
+----
+ 
+to samo dla wywołania bean'a : 
+
+----
+<route>
+<from uri="direct:start"/>
+<to uri="bean:myBean" pattern="InOnly"/>
+</route>
+----
+ 
+
+=== żądanie-odpowiedź (Request-reply)
+
+image:RequestReply.gif[]
+
+Komunikacja w stylu żądanie-odpowiedź. Tworzony jest dodatkowy kanał na którym inicjalizator działania (źródło) czeka na odpowiedź
+
+
+----
+jms:MyQueue?exchangePattern=InOut
+----
+
+----
+// Send to an endpoint using InOut
+from("direct:testInOut").inOut("mock:result");
+ 
+// Send to an endpoint using InOut
+from("direct:testInOnly").inOnly("mock:result");
+ 
+// Set the exchange pattern to InOut, then send it from direct:inOnly to mock:result endpoint
+from("direct:testSetToInOnlyThenTo").setExchangePattern(ExchangePattern.InOnly).to("mock:result");
+
+from("direct:testSetToInOutThenTo").setExchangePattern(ExchangePattern.InOut).to("mock:result");
+ 
+// Or we can pass the pattern as a parameter to the to() method
+from("direct:testToWithInOnlyParam").to(ExchangePattern.InOnly, "mock:result");
+from("direct:testToWithInOutParam").to(ExchangePattern.InOut, "mock:result");
+from("direct:testToWithRobustInOnlyParam").to(ExchangePattern.RobustInOnly, "mock:result");
+ 
+// Set the exchange pattern to InOut, then send it on
+from("direct:testSetExchangePatternInOnly").setExchangePattern(ExchangePattern.InOnly).to("mock:result");
+----
+
+
+
+
+
+
+=== adres odpowiedzi (Return Address)
+
+image:ReturnAddressSolution.gif[]
+
+W celu przeprowadzenia integracji w trybie request-reply musimy określić adres odpowiedzi dla odbiornika
+
+Reprezentacja adresu zwrotnego
+
+
+NOTE: Wykorzystywane w patternie : **request-reply** /  **JMSReplyTo**
+
+----
+<to uri="jms:queue:request?replyTo=response"/>
+----
+
+
+----
+getMockEndpoint("mock:bar").expectedBodiesReceived("Bye World");
+template.sendBodyAndHeader("direct:start", "World", "JMSReplyTo", "queue:bar");
+----
+
+----
+from("direct:start").to("activemq:queue:foo?preserveMessageQos=true");
+from("activemq:queue:foo").transform(body().prepend("Bye "));
+from("activemq:queue:bar?disableReplyTo=true").to("mock:bar");
+----
+
+
+=== korelator (Colleration Identifier)
+
+image:CorrelationIdentifierSolution.gif[]
+
+Umożliwia skolerowanie żądania wraz z odpowiedzią
+
+NOTE: Wykorzystywane w patternie : **request-reply**
+
+----
+from("direct:start")
+    .to(ExchangePattern.InOut,"jms:queue:foo?useMessageIDAsCorrelationID=true")
+    .to("mock:result");
+----
+
+Spring XML : 
+
+----
+<route>
+    <from uri="direct:start"/>
+    <to uri="jms:queue:foo?useMessageIDAsCorrelationID=true" pattern="InOut"/>
+    <to uri="mock:result"/>
+</route>
+----
+       
+
+=== sekwencja (Message Sequence)
+
+image:MessageSequenceSize.gif[]
+
+Umożliwia stworzenie sekwencji odpowiedzi w celu odpowiedniego przetwarzania
+
+=== przedawnienie (Message Expiration)
+
+image:MessageExpirationSolution.gif[]
+
+Określia czas w którym wiadomość ma prawo zostać jeszcze przetworzona lub odebrana przez odbiornik.
+
+----
+setJMSExpiration(long expiration)
+----
+
+----
+to("jms:queue:myDestination?timeToLive=5000"); 
+----
+
+ActiveMq: 
+
+----
+    producer.setTimeToLive()
+    producer.send(Destination, Message, int, int, long)
+----

@@ -1,0 +1,327 @@
+== Rodzaje błędów
+
+
+=== Irrecoverable errors (nienadąjce się do ponownego przetworzenia)
+
+----
+Message msg = Exchange.getOut();
+msg.setFault(true);
+msg.setBody("Some Error Message");
+----
+
+** Fault messages 
+
+=== recoverable error (nadające się do ponownego przetworzenia)
+
+ ** IOException
+ 
+ ** Exception
+ 
+ 
+== Rodzaje polityki obsługi błędów
+ 
+=== DefaultErrorHandler
+
+** domyślnie zachowanie : bez powtórzeń
+
+** domyślnie zachowanie : wyjątki są propagowane do klienta
+
+** domyślnie zachowanie: stacktrace jest zapisywany do logów
+
+** domyślnie zachowanie : historia tras jest zapisywana do logów
+
+ 
+=== DeadLetterChannel
+
+Obsłuż błędy później
+
+
+----
+public class DlcRouteBuilder extends RouteBuilder {
+@Override
+public void configure() throws Exception {
+    errorHandler(deadLetterChannel("seda:error"));
+    from("direct:start") //...
+    from("seda:error") //...
+}
+}
+----
+
+** useOriginalMessage
+
+TODO
+
+ 
+=== LoggingErrorHandler
+
+Logowanie błędów w czasie rzeczywistym
+
+
+----
+<camelContext errorHandlerRef="myErrorHandler" xmlns="http://camel.apache.org/schema/spring">
+<errorHandler id="myErrorHandler" type="LoggingErrorHandler" level="ERROR" logName="MyLoggingErrorHandler"/>
+----
+
+----
+public class LoggingRouteBuilder extends RouteBuilder {
+@Override
+public void configure() throws Exception {
+  errorHandler(loggingErrorHandler().logName("MyLoggingErrorHandler").level(LoggingLevel.ERROR));
+};
+from("direct:start")
+//...
+}
+}
+----
+
+NOTE : logName = LoggerFactory.getLogger(logName);
+
+NOTE: niezalecane
+
+** Dla trasy
+
+----
+<camelContext xmlns="http://camel.apache.org/schema/spring">
+<errorHandler id="myRouteSpecificLogging" type="LoggingErrorHandler" level="ERROR" logName="MyRouteLogging"/>
+<route errorHandlerRef="myRouteSpecificLogging">
+   <from uri="direct:start"/>
+    <!-- ... -->
+</route>
+</camelContext>
+----
+
+Java: 
+
+----
+from("direct:start").errorHandler(loggingErrorHandler().logName("MyRouteLogging").level(LoggingLevel.ERROR))
+     .bean(FlakyProcessor.class).to("mock:result");
+----
+
+ 
+=== NoErrorHandler
+
+Błędy nie są obsługiwane
+
+Powrót do klienta
+ 
+=== TransactedErrorHandler
+
+Działa na trasach oznaczonych jako **transacted**
+
+Współpracuje z manadzerem transakcji
+
+
+ 
+ 
+== Najlepsze praktyki 
+ 
+ ** Separacja tras wraz z różnymi poziomami błędów
+ 
+ ** Próby ponowienia
+ 
+ ** Przechwycanie i właściwe logowanie sytuacji generujących błędy
+ 
+ ** Tworzenie polityk obługi błędów
+ 
+ ----
+ <onException>
+  <exception>javax.xml.xpath.XPathException</exception>
+  <exception>javax.xml.transform.TransformerException</exception>
+  <to uri="log:xml?level=WARN"/>
+</onException>
+
+<onException>
+    <exception>java.io.IOException</exception>
+    <exception>java.sql.SQLException</exception>
+    <exception>javax.jms.JMSException</exception>
+    <redeliverPolicy maximumRedeliveries="5" redeliveryDelay="3000"/>
+</onException>
+ ----
+ 
+ 
+== onException
+ 
+ ** traktuj to jak try-catch-finally
+ 
+ 
+----
+<camelContext xmlns="http://camel.apache.org/schema/spring">
+    <onException>
+            <exception>pl.java.scalatech.exception.MyException</exception>
+            <exception>pl.java.scalatech.exception.InvoiceProcessingException</exception>
+            <to uri="mock:error"/>
+    </onException>
+<!-- ... -->
+</camelContext>
+----
+
+
+Java : 
+
+----
+public class ExceptionRouteBuilder extends RouteBuilder {
+@Override
+public void configure() throws Exception {onException(MyException.class, InvoiceProcessingException.class).to("mock:error");
+ from("direct:start") //...
+}
+}
+----
+ 
+ 
+=== handle / true
+ 
+ Błąd nie jest propagowany do klienta
+ 
+NOTE: **doCatch** obsługuje wyjątek podczas gdy **OnException** domyślnie tego nie robi
+ 
+ Odpowiednik catch 
+ 
+=== handle / false
+ 
+ Odpowiednik throw
+ 
+ Błąd jest zwracany do klienta
+ 
+
+----
+ onException(ClientException.class).handled(false)    //default.log("error sent back to the client"); 
+----
+
+Spring xml: 
+
+----
+<camelContext xmlns="http://camel.apache.org/schema/spring">
+<onException>
+    <exception>
+           ClientException.class
+    </exception>
+    <handled>
+        <constant>true</constant>
+    </handled>
+    <to uri="mock:error"/>
+</onException>
+<!-- ... -->
+</camelContext>
+----
+
+== Continued
+ 
+ 
+=== true
+ 
+ Dyrektywa, która pozwala aby flow nieprzerwanie nawet kiedy zostanie wygenerowany wyjątek
+ 
+ ** Przechwytuje wyjątek
+ 
+ ** Następuje manipulacja exchange
+ 
+ ** Flow jest kontynuowany
+ 
+----
+<onException>
+<exception>
+   MyException.class
+</exception>
+<continued>
+<constant>true</constant>
+</continued>
+<to uri="mock:ignore"/>
+</onException>
+----
+ 
+ 
+Java : 
+
+----
+onException(MyException.class).continued(true).to("mock:ignore")
+----
+ 
+ 
+=== false
+ 
+== onCompletion
+
+Zastosowanie : Tworzenie  pseudo-transakcji np w architekturze REST.
+
+----
+from("direct:in")
+.onCompletion()
+.log("onCompletion triggered: ${threadName}")
+.to("mock:completed")
+.end()
+.log("Processing message: ${threadName}");
+----
+
+
+ 
+== Zakres obsługi błędów 
+ 
+=== Globalny
+ 
+=== Na trasę
+
+
+ 
+== Redelivery
+ 
+Ponawianie : istnieje możliwość , iż element infrastruktury będzie znów dostępny. 
+ 
+----
+errorHandler(defaultErrorHandler().maximumRedeliveries(5).redeliveryDelay(10000)); 
+----
+
+----
+errorHandler(defaultErrorHandler().maximumRedeliveries(5)
+.retryAttemptedLogLevel(LoggingLevel.WARN).backOffMultiplier(2).useExponentialBackOff());
+----
+
+=== header
+
+** Exchange.REDELIVERY_COUNTER
+
+** Exchange.REDELIVERED
+
+** Exchange.REDELIVERY_EXHAUSTED
+
+
+=== Warunkowe ponawianie 
+
+
+----
+<camelContext errorHandlerRef="myErrorHandler" xmlns="http://camel.apache.org/schema/spring">
+<errorHandler id="myErrorHandler" type="DefaultErrorHandler"  retryWhileRef="myRetryPredicate"/>
+<!-- ... -->
+</camelContext>
+----
+
+
+== Drobno-ziarnistość w obsłudze wyjątków
+
+----
+from("direct:start").to("mock:before")
+  .doTry().bean(InvoiceProcessor.class).transform(constant("Ok!"))
+  .doCatch(InvoiceProcessingError.class)
+  .to("mock:error")
+  .transform(constant("Coś poszło nie tak !"))
+  .doFinally()
+  .to("mock:finally")
+  .end()
+  .to("mock:after");
+
+----
+
+NOTE: **doTry()**  kończ  **end()**
+
+
+Jeśli nie chcesz w oznaczą trasy jako błędnej
+
+----
+<doCatch>
+<exception>InvoiceProcessor.class</exception>
+<handled>
+   <constant>false</constant>
+</handled>
+<to uri="mock:error"/>
+</doCatch>
+----
+

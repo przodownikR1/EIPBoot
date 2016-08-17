@@ -1,0 +1,188 @@
+:numbered:
+:icons: font
+:pagenums:
+:imagesdir: images
+:iconsdir: ./icons
+:stylesdir: ./styles
+:scriptsdir: ./js
+
+:image-link: https://pbs.twimg.com/profile_images/425289501980639233/tUWf7KiC.jpeg
+ifndef::sourcedir[:sourcedir: ./src/main/java/]
+ifndef::resourcedir[:resourcedir: ./src/main/resources/]
+ifndef::imgsdir[:imgsdir: ./../images]
+:source-highlighter: coderay
+
+== EAI Enterprise Application Integration (Integracja Aplikacji Korporacyjnych)
+
+source: http://www.sybeq.com/ShowArticle.aspx?id=29
+
+image:EAI_Topology1.png[]
+
+
+source: http://kthreetech.com/eaiandesb.html
+
+image:eai.png[]
+
+
+== Integracja 
+
+=== https://en.wikipedia.org/wiki/Message-oriented_middleware[MOM]
+
+=== http://www.eaipatterns.com/[EIP] 
+
+
+source: http://www.ossmentor.com/2014/11/camel-and-enterprise-integration.html
+
+image:EAIPatterns.png[]
+
+** Książka Enterprise Integration Patterns. autorzy : Gregor Hohpe, Bobby Woolf.  October 2003.
+
+
+=== https://en.wikipedia.org/wiki/Service-oriented_architecture[SOA]
+
+=== https://en.wikipedia.org/wiki/Representational_state_transfer[REST]
+
+=== https://en.wikipedia.org/wiki/Enterprise_service_bus[ESB] 
+
+=== etc
+
+
+include::integration_style.adoc[]
+
+== Typy integracji
+
+=== Information Portals
+
+Problem : Użytkownik końcowy musi mieć dostęp do wielu systemów aby otrzymać odpowiedź na zadane pytanie.
+Przykład : sklep internetowy i system reprezentowany przez firmę kurierską monitorującą stan zadanej przesyłki.
+Nie dość, że jesteśmy zalogowani w sklepie to czasem musimy zalogować się do systemy monitoringu firmy kurierskiej. Obecnie jest to rzadko spotykane, bo wystarcza nam w tym celu wygenerowany token.
+
+
+=== Data Replication
+Problem : Wiele heteregoniczych systemów potrzebuje dostępu do tych samych danych, tworzą bliźniacze magazyny danych.
+Przykład : System  A, B i C korzysta z danych znajdujących się w tej samej fizycznej bazie. Rozwiązaniem jest replikacja danych na poziomie samej bazy lub np zastosowanie kolejek do transportowania danych między systemami
+
+=== Shared Business Functions
+
+Problem : W ten sam sposób wiele aplikacji przechowuje nadmiarowe dane, co aplikuje tendencją do redundancji funkcjonalności.
+
+
+Przykład : Wiele systemów korzysta z NIP'u danego klienta, lub słownika kodów pocztowych. Można ujednolicić usługę poprzez wystawienie wspólnego API, co z kolei skutkuje tym, iż podobne usługi w heterogenicznych systemach znikną zastąpione klientami.
+
+=== Service-Oriented Architectures
+
+Problem : Wspólne funkcje biznesowe możemy realizować za pomocą dobrze zdefiniowanych usług. Sługi te są powszechnie dostępne i odpowiadają na żądania klientów. Usługi te muszą być na stałe zamontowane w infrastrukturze systemu, skatalogowane pod względem dostępnych funkcji. Każda usługa SOA musi opisywać swoją funkcję oraz sposób komunikacji z innymi usługami w tejże architekturze. Wszystkie usługi z katalogu usług muszą dostępne być w spójny sposób.
+Tutaj może się zatrzeć różnica pomiędzy integracją a rozpowszechnianiem usługi. 
+Distributed Business Processes
+
+Problem : Jedna transakcja biznesowa może być rozprzestrzeniana pomiędzy wiele systemów. Często brakuje koordynatora dla takich zadań, który zarządza wykonaniem podobnych funkcji w wielu istniejących systemach.
+
+Przykład : Rozmycie odpowiedzialności dla funkcji biznesowych jak i usług SOA
+
+
+=== Business-to-Business Integration
+
+Problem : Ujednolicenie protokołów komunikacji, formatu danych  oraz systemów bezpieczeństwa pomiędzy dostawcą a klientem usługi.
+
+
+Przykład : Sklep internetowy - dostawca towaru, komunikacja pomiędzy partnerami biznesowymi.
+
+
+== Sposoby zdalnej komunikacji :
+
+** RPC
+** RMI
+** REST
+** WS
+** COBRA
+** JMS
+** Remoting (spring http remoting etc)
+
+
+== Czynniki wpływające na rodzaj integracji :
+
+
+=== Application coupling 
+ 
+Aplikacje powinny dążyć do minimalizacji wspólnych zależności
+
+=== Integration simplicity
+
+Należy dążyć do maksymalizacji prostoty integracji.
+
+Minimalizować ilość kodu i  koszty utrzymania aplikacji.
+
+=== Integration technology
+
+ Należy brać po uwagę użyte technologie, koszty z nimi związane oraz ewentualne problemy projektowe
+
+=== Data format 
+
+ Należy umożliwić wymianę danych pomiędzy systemami bazującymi na innych formatach danych czy protokołach.
+ Należy tak projektować systemy integracji aby zamiana protokołu czy formatu była możliwie jak najprostsza i jak najmniej kosztowna.
+
+=== Data timeliness
+
+Integracja powinna brać pod uwagę minimalizację czasu pomiędzy udostępnieniem danych przez jedną z aplikacja a konsumpcją i ewentualną odpowiedzią przez drugą aplikację.
+Dane powinny być wymieniane w stosunkowo małych kawałkach, a nie w zbiorach dużych niepowiązanych elementów co może mieć impakt z przyszłą wydajnością systemu
+
+Tip : Spring Batch
+
+=== Opóźnienia (Latency in data sharing) 
+
+ Powinny być uwzględnione w procesie projektowym, gdyż może skutkować to tym,
+ że dane dane nie będą już aktualne, a integracja stanie się bardziej złożona.
+
+=== Data or functionality
+
+Zintegrowane aplikacje mogą nie tylko dzielić ze sobą dane ale również dzielić funkcjonalność (SOA).
+Zdalne wywołanie funkcji jest zawsze trudniejsze i bardziej kosztowne niż wywołanie jej lokalnie - zawsze musi brać to pod uwagę, bo konsekwencje mogą być istotne.
+
+=== Asynchronicity 
+
+Typowym podejście jest proces synchroniczny czyli klient czeka na odpowiedź serwera, jak już ją dostanie może kontynuować przetwarzanie danych.
+Takie podejście może stwarzać nie tylko problemy wydajnościowe ale także problemy związane z dostępnością.
+Np mogą wystąpić chwilowe problemy z siecią, dany zasób może być chwilowo niedostępny również z innych powodów.
+Zastosowanie mechanizmów asynchronicznych, gwarancji dostarczenia oraz ponawiania pomoże rozwiązać ten problem
+
+
+
+== Aranżacja
+
+**  Centralny mózg / dyrygent
+
+** Wada
+
+*** klient może stać się władzą centralną tą w której zaczyna się logika 
+
+*** kruchość
+
+*** mniejsza podatność na zmiany
+
+== Choreografia
+
+** informujemy każdą gałąź systemu o działaniu i pozwalamy im na podjęcie odpowiedniej decyzji
+
+** emitowanie zdarzeń w sposób asynchroniczny
+
+** system pozbawiony sprzeżeń
+
+** Wada
+
+*** niejawny proces biznesowy
+
+
+include::system_eai.adoc[]
+
+include::kanal.adoc[]
+
+include::instrukcja_wiadomosci.adoc[]
+
+include::routing.adoc[]
+
+include::transformacja.adoc[]
+
+incluce::endpoints.adoc[]
+
+include::zarzadzanie_eai.adoc[]
+

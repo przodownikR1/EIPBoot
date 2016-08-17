@@ -1,0 +1,71 @@
+:numbered:
+:icons: font
+:pagenums:
+:imagesdir: images
+:iconsdir: ./icons
+:stylesdir: ./styles
+:scriptsdir: ./js
+
+:image-link: https://pbs.twimg.com/profile_images/425289501980639233/tUWf7KiC.jpeg
+ifndef::sourcedir[:sourcedir: ./src/main/java/]
+ifndef::resourcedir[:resourcedir: ./src/main/resources/]
+ifndef::imgsdir[:imgsdir: ./../images]
+:source-highlighter: coderay
+
+== Apache Camel to:
+
+source :swissknifeshop.co.uk
+
+image:camel_metafora.jpg[]
+
+** Silnik do budowy i obsługi zdefiniowanych tras.
+
+** Pozwala zdefiniować politykę procesowania, obsługi błędów czy ponawiania
+
+** Pozwala dopasować różne protokoły i formaty do siebie nawzajem
+
+** Służy głównie do integracji usług czy całych systemów
+
+*** wystawnienia i konsumpcja zdefiniowanych punktów końcowych
+
+*** transormacje komunikatów
+
+*** manipulację tras (sterowanie biznesowe)
+
+*** odpowiednia reakcja na zaistniałe błędy
+
+** oparty na modelu POJO
+
+** posiada zdefiniowany DSL 
+
+** akceptuje definicję i konfigurację w językach jak : 
+
+*** java
+
+***  groovy
+
+*** xml
+
+*** scala
+
+
+== Zalety stosowania Apache Camel : 
+
+** redukcja boilerplace code (nie musimy już programować obsługę JMS, SOAP, JDBC, socket-level I/O czy mechanizmów transformacji i konwersji jak np CSV, XML, JSON etc ) 
+
+**  jasność działania biznesu aplikacji. Posługujemy się wzorcami EIP, które są ogólnie skatalogowane i dobrze znane programistą implementującym logikę biznesową czy też integrację pomiędzy systemami.
+
+** monitoring stanu procesowania
+
+** redukcje popełnionych błędów. Stosujemy szablony i sprawdzone abstrakcję poparte setkami testów oraz działaniem produkcyjnych w wielu systemach. 
+
+** ponad 160 istniejących gotowych do użycia komponentów 
+
+** wsparcie dla testów
+
+** płynna konwersja typów
+
+** integracja ze Spring
+
+** pełna koncepcja EIP
+

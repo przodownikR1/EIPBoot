@@ -1,0 +1,7 @@
+<routes xmlns="http://camel.apache.org/schema/spring">
+     <route id="test">
+         <from uri="timer://trigger?period=20000"/>
+         
+         <to uri="log:out"/>
+     </route>
+ </routes>

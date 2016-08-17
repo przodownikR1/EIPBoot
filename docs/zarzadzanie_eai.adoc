@@ -1,0 +1,203 @@
+:numbered:
+:icons: font
+:pagenums:
+:imagesdir: images
+:iconsdir: ./icons
+:stylesdir: ./styles
+:scriptsdir: ./js
+
+:image-link: https://pbs.twimg.com/profile_images/425289501980639233/tUWf7KiC.jpeg
+ifndef::sourcedir[:sourcedir: ./src/main/java/]
+ifndef::resourcedir[:resourcedir: ./src/main/resources/]
+ifndef::imgsdir[:imgsdir: ./../images]
+:source-highlighter: coderay
+
+== Zarządzanie systemem EAI 
+
+=== magistrala zarządzająca (Control Bus)
+
+image:ControlBus.gif[]
+
+Zarządzanie dynamiczne trasami 
+
+=== Stopowanie 
+
+----
+from("direct:in").id("myRoute").log("Stopping route").to("controlbus:route?routeId=myRoute&action=stop&async=true")
+.log("Signalled to stop route").to("mock:out");
+----
+
+
+
+
+=== Startowanie
+
+----
+template.sendBody("controlbus:route?routeId=foo&action=start", null);
+----
+
+Z pobraniem statusu : 
+
+----
+String status = template.requestBody("controlbus:route?routeId=foo&action=status", null, String.class);
+----
+
+=== Pobieranie statystyk
+
+----
+String xml = template.requestBody("controlbus:route?action=stats", null, String.class);
+
+String xml = template.requestBody("controlbus:route?routeId=foo&action=stats", null, String.class);
+
+----
+
+
+=== objazd (Detour)
+
+image:Detour.gif[]
+
+Routing na awaryjne sytuacje.
+
+----
+from("direct:start").choice()
+    .when().method("controlBean", "isDetour").to("mock:detour").end()
+    .to("mock:result"); 
+----
+
+
+Spring XML : 
+
+----
+<route>
+  <from uri="direct:start"/>
+    <choice>
+      <when>
+        <method bean="controlBean" method="isDetour"/>
+    <to uri="mock:detour"/>
+      </when>
+    </choice>
+    <to uri="mock:result"/>
+</route>
+
+----
+   
+
+=== podsłuch  Wire Tap (Top ten)
+
+image:WireTap.gif[]
+
+Wysłanie kopii exchange do innej lokalizacji (trasy) bez impaktu na orginalną trasę wiadomości.
+
+Zastosowanie :
+
+** audyt
+
+** logowanie wiadomość jako całości
+
+*** payload
+
+*** header
+
+*** properties
+
+Dzięki wire tap możemy monitorować wiadomości, zapisywać je potem na konsole, do bazy danych wysyłać do zewnętrznego źródła np poprzez interfejs sieciowy
+
+WARNING: Domyślnie działamy na płytkiej kopii obiektu = ta sama referencja. Może skutkować do nieprzewidzianymi skutkami ubocznymi jeśli w trasie z wireTap będziemy manipulowali wiadomością. Wtedy wiadomość znajdująca się w głównej trasie procesu też ulegnie zmianie.
+
+Na szczęście wireTap dostarcza  możliwość wykonania głębokiej kopii dzięki czemu obiekt będzie zachowywał się jak 'immutable' .
+
+
+[source,java]
+----
+wireTap("direct:audit").onPrepare(new DeepCloningProcessor());
+
+
+public class DeepCloningProcessor implements Processor {
+   public void process(Exchange exchange) throws Exception {
+        Message in = exchange.getIn();
+        T t = in.getBody({T}.class);
+        if (t != null) {
+            in.setBody(t.clone());
+        }
+      }
+}
+
+from("direct:invoice").wireTap("direct:tap_invoice").to("jms:orders");
+
+from("direct:invoice")
+    .wireTap("direct:tap_invoice")
+        .newExchangeHeader("sent_date", simple("${date:now:yyyyMMdd}"))
+    .end()
+    // here we continue routing the original messages
+    .to("jms:orders");
+ 
+// this is the tapped route
+from("direct:tap_invoice")
+    .to("mock:tap_invoice");
+    
+    
+//.newExchangeBody(constant("test message"))
+----
+
+
+=== historia wiadomości (Message History)
+
+image:MessageHistory.gif[]
+
+Systematyczne wzbogacanie wiadomości o dodatkowe informację służące do opisu historii przetwarzania
+
+----
+List<MessageHistory> list = exchange.getProperty(Exchange.MESSAGE_HISTORY, List.class);
+----
+Aktywowanie / Dezaktywacja
+
+----
+camelContext.setMessageHistory(false);
+----
+
+Podczas budowania kontekstu
+
+----
+<camelContext messageHistory="false" ...>
+...
+</camelContext>
+
+----
+
+
+
+
+=== magazyn wiadomości (Message Store)
+
+image:MessageStore.gif[]
+
+Sekwencyjne odkładanie wiadomości po kolejnych etapach przetwarzania
+
+
+NOTE: Dostępne w przyszłości od wersji 3.0 w góre
+
+=== inteligentne proxy (Smart Proxy)
+
+
+image:SmartProxy.gif[]
+
+Nadpisywanie **Return address** w celu zmiany celu dostarczenia
+
+=== wiadomość testowa (Test Message)
+
+image:TestMessage.gif[]
+
+Specjalnie spreparowana wiadomość, którą usługi i infrastruktura będzie traktowała w inny sposób niż standardową wiadomość
+
+
+NOTE: Testy
+
+=== zsyp (Channel Purger)
+
+image:ChannelPurger.gif[]
+
+Element który nie realizuje żadnej logiki przetwarzania jak również nie wpływa na przebieg całego procesu.
+
+
+NOTE: Zaślepka 
+

@@ -1,0 +1,1324 @@
+:numbered:
+:icons: font
+:pagenums:
+:imagesdir: images
+:iconsdir: ./icons
+:stylesdir: ./styles
+:scriptsdir: ./js
+
+:image-link: https://pbs.twimg.com/profile_images/425289501980639233/tUWf7KiC.jpeg
+ifndef::sourcedir[:sourcedir: ./src/main/java/]
+ifndef::resourcedir[:resourcedir: ./src/main/resources/]
+ifndef::imgsdir[:imgsdir: ./../images]
+:source-highlighter: coderay
+
+== Routing
+
+image:messageRouting.png[] 
+
+=== Filtr (Message Filter) (Top ten)
+
+image:MessageFilter.gif[]
+
+** pozwala na filtrowanie wiadomości - decyduje, które wiadomości mogą być przekazane dalej
+
+** decydujesz czy dana wiadomość ma wypaść z trasy, wejść do innej gałęzi, etc. Odsiew niechcianych komunikatów.
+
+** Działanie : określa warunek na podstawie :
+   
+*** header
+
+*** body
+
+bazuje na interfejsie Predicate podobnie jak w przypadku Content-Based Routera.
+Używa : Xpath, XQuery, SQL i Expression Language
+Przykład :
+
+[source,java]
+----
+from("direct:invoice")
+    .filter().method(Invoice.class, "isBuisnessCustomer").to("mock:business").end()
+    .to("mock:processing");
+ 
+public static class Invoice {
+    public boolean isBusinessCustomer(@Header("type") String type) {
+        return type.equals("business");
+    }
+}
+----
+
+
+----
+RouteBuilder builder = new RouteBuilder() {
+    public void configure() {
+        errorHandler(deadLetterChannel("mock:error"));
+ 
+        from("direct:a")
+            .filter(header("foo").isEqualTo("bar"))
+                .to("direct:b");
+    }
+};
+----
+
+----
+from("direct:start").
+        filter().xpath("/person[@name=&#39;James&#39;]").
+        to("mock:result");
+----
+
+----
+from("file:dir/a").filter(header(Exchange.FILE_NAME).endsWith(".xml")).to("file:dir/b");
+----
+
+lub Xml : 
+
+----
+<route>
+<from uri = "file:dir/a"/>
+<filter><simple>${file:name} contains 'xml'</simple><to uri = "file:dir/b"/></filter>
+</route>
+----
+
+----
+from("direct:start")
+    .filter().method(MyBean.class, "isGoldCustomer").to("mock:result").end()
+    .to("mock:end");
+ 
+public static class MyBean {
+    public boolean isGoldCustomer(@Header("level") String level) { 
+        return level.equals("gold"); 
+    }
+}
+----
+
+XML:
+
+----
+<camelContext errorHandlerRef="errorHandler" xmlns="http://camel.apache.org/schema/spring">
+    <route>
+        <from uri="direct:a"/>
+        <filter>
+            <xpath>$foo = 'bar'</xpath>
+            <to uri="direct:b"/>
+        </filter>
+    </route>
+</camelContext>
+----
+
+----
+<bean id="myBean" class="com.foo.MyBean"/>
+<camelContext xmlns="http://camel.apache.org/schema/spring">
+    <route>
+        <from uri="direct:a"/>
+        <filter>
+            <method ref="myBean" method="isGoldCustomer"/>
+            <to uri="direct:b"/>
+        </filter>
+    </route>
+</camelContext>
+----
+
+
+----
+public class MyPredicate {
+public boolean isAccept(String body) {
+ ....
+}}
+
+from("direct:start").filter(and(xpath("/someXml/city = 'Warsaw'"),method(predicate, "isAccept"))).to("mock:dest");
+----
+
+Usuwanie lub przepuszcznie ważnych informacji 
+
+TIP: if java
+
+TIP: 
+
+NOTE: Usuwanie niechcianych informacji patrz : **Idempotent consumer**
+
+dynamiczny
+
+=== ze względu na obiorce
+
+
+
+== splitter (Top ten)
+ 
+image:Sequencer.gif[]
+
+Określa w jaki sposób podzielić dużą wiadomość na mniejsze kawałki tak aby je skuteczniej procesować
+
+
+=== Collection, Iterators, Arrays
+
+----
+<from uri="direct:start"/>
+<split>
+  <simple>${body}</simple>
+<to uri="mock:split"/>
+</split>
+----
+
+JAVA:
+
+----
+from("direct:in").split(body()).to("mock:split").end();
+----
+
+Przykład : 
+
+----
+public class ListWrapper {
+private List<String> wrapped;
+}
+----
+
+----
+from("direct:in").split(simple("${body.wrapped}")).to("mock:out").end();
+----
+
+
+Przykład :
+
+[source,java]
+----
+from("file:orders").split().xpath("/orders/order").to("direct:order");
+----
+
+lub Xml : 
+
+
+[source,xml]
+----
+<route>
+<from uri = "file:orders"/>
+<split>
+<xpath>/orders/order</xpath>
+<to uri = "direct:order" />
+</split>
+</route>
+----
+
+** Strategie
+
+*** CamelSplitIndex / int
+
+*** CamelSplitSize / int
+
+*** CamelSplitComplete / boolean 
+
+*** W przypadku błędu - przerywamy 
+
+----
+ ...split(body()).stopOnException()
+----
+
+Java DSL: 
+
+----
+.split(body().tokenize(",")).streaming().to("seda:parts");
+----
+
+Spring DSL :
+
+----
+from("file://inbox").split(body().tokenize("\n")).to("seda:orderLines");
+----
+
+** Równoległe przetwarzenie
+
+----
+.split(body().tokenize(",")).streaming().parallelProcessing().to("seda:parts");
+----
+
+** Własna implementacja
+
+----
+<split>
+        <method bean="mySplitter" method="splitMe"/>
+        <to uri="seda:processOrderLine"/>
+</split>
+
+<bean id="mySplitter" class="com.mycompany.MySplitter"/>
+
+public List splitMe(String body) {
+        // split using java code and return a List
+        List parts = ...
+        return parts;
+}
+----
+
+=== Właściwości
+
+** CamelSplitIndex 
+
+** CamelSplitSize 
+
+** CamelSplitComplete
+
+
+=== Exception
+
+----
+.split(body()).stopOnException()
+----
+
+----
+<split stopOnException="true">
+----
+
+
+=== Split XML 
+
+----
+<invoice>
+<item><product name="tv" quantity="4" salary="343"/></item>
+<item><product name="bike" quantity="1" salary="44"/></item>
+</invoice>
+----
+
+----
+from("direct:start").split(xpath("//invoice/item/product"))
+.to("mock:items")
+.end()
+.to("mock:result");
+
+----
+
+
+
+=== Zrównoleglanie
+
+----
+<split parallelProcessing="true" timeout="5000">
+----
+
+Java :
+
+----
+split(body()).parallelProcessing()
+----
+
+Kolaboracja z þulą wątków :
+
+----
+<split executorServiceRef="myPool">
+----
+
+Java :
+
+----
+.split(body()).executorServiceRef("customPool")
+----
+
+
+
+
+
+
+== agregator (Top ten)
+
+image:Aggregator.gif[]
+
+
+Odwrotne działanie w stosunku do Spittera.
+
+Określa jak zagregować wiele małych wiadomości w jedną logiczną całość
+
+** AggregationStrategy - interfejs określający algorytm sklejania wiadomości w jedną całość
+
+----
+.aggregate(header("group"), new SetAggregationStrategy()).completionSize(header("batchSize"))
+----
+
+----
+from("direct:in").aggregate(header("group"), new SetAggregationStrategy())
+.completionSize(10).completionTimeout(1000).to("mock:out").end();
+----
+
+** Przykład
+
+----
+from("jms:topic:loan:quote")
+        .aggregate().header("loanId")
+        .aggregationStrategy(bestQuote)
+        .completionPredicate(header(Exchange.AGGREGATED_SIZE)
+        .isGreaterThan(2))
+        .to("seda:bestLoanQuote");
+----
+
+
+----
+public class BestQuoteStrategy implements AggregationStrategy {
+        public Exchange aggregate(Exchange oldExchange, Exchange newExchange) {
+                double oldQuote = oldExchange.getIn().getBody(Double.class);
+                double newQuote = newExchange.getIn().getBody(Double.class);
+                // return the "winner" that has the lowest quote
+                return newQuote < oldQuote ? newExchange : oldExchange;
+        }
+}
+----
+
+Spring XML : 
+
+----
+<route>
+
+<from uri="jms:topic:loan:qoute"/>
+        <aggregate strategyRef="bestQuote">
+                <correlationExpression>
+                        <header>loanId</header>
+                </correlationExpression>
+                <completionPredicate>
+                        <simple>${header.CamelAggregatedSize} > 2</simple>
+                </completionPredicate>
+        </aggregate>
+        <to uri="seda:bestLoanQuote"/>
+</route>
+
+<bean id="bestQuote" class="com.mycompany.BestQuoteStrategy"/>        
+----
+        
+
+** Dla bardziej złożonych przypadków
+
+----
+<completionPredicate>
+        <method bean="quoteService" method="isComplete"/>
+</compledtionPrediacate>
+
+public boolean isComplete(@Header(Exchange.AGGREGATED_SIZE) int count, String body) {
+        return body.equals("STOP");
+}
+----
+
+
+
+** Strategie
+
+*** **completionTimeout** - agregacja trwa przez założony czas (nieaktywność)
+
+Czas w ms
+
+----
+from("direct:start")
+    // aggregate all exchanges correlated by the id header.
+    // Aggregate them using the BodyInAggregatingStrategy strategy which
+    // and after 3 seconds of inactivity them timeout and complete the aggregation
+    // and send it to mock:aggregated
+    .aggregate(header("id"), new BodyInAggregatingStrategy()).completionTimeout(3000)
+        .to("mock:aggregated");
+----
+
+----
+<aggregate strategyRef="myAggregationStrategy" completionSize="10" completionTimeout="1000">
+----
+
+Dynamicznie : 
+
+----
+completionTimeout(header("timeout"))
+----
+
+*** **completionInterval** 
+
+Koniec przetwarzania ograniczony końcem iteracji (ms) 
+
+NOTE: Trochę jak odwrotność do completionTimeout
+
+----
+<route>
+    <from uri="direct:aggregator" />
+    <aggregate completionSize="500" completionInterval="60000" eagerCheckCompletion="true">
+        <correlationExpression>
+             <xpath>/fizz/buzz</xpath>
+        </correlationExpression>
+        <completion-predicate>
+             <simple>${property.fireNow} == 'true'</simple>
+        </completion-predicate>
+        <to uri="bean:postProcessor?method=run" />
+    </aggregate>
+</route>
+----
+
+
+*** **completionSize** - agregujemy tylko n paczek
+
+Agregacja trwa aż do momentu osiągnięcia wielkości completionSize
+
+----
+from("direct:start")
+    // aggregate all exchanges correlated by the id header.
+    // Aggregate them using the BodyInAggregatingStrategy strategy which
+    // and after 3 messages has been aggregated then complete the aggregation
+    // and send it to mock:aggregated
+    .aggregate(header("id"), new BodyInAggregatingStrategy()).completionSize(3)
+        .to("mock:aggregated");
+----
+
+----
+<completionSize>
+<simple>${header[batchSize]}</simple>
+</completionSize>
+----
+
+Dynamicznie : 
+
+----
+completionSize(header("mySize"))
+
+----
+
+ 
+*** **completionPredicate** - agregujemy bazujac na jakimś określonym warunku
+
+----
+.aggregate(header("group"), new SetAggregationStrategy()).completionPredicate(simple("${body.size} == 5"))
+----
+
+----
+from("direct:start")
+    // aggregate all exchanges correlated by the id header.
+    // Aggregate them using the BodyInAggregatingStrategy strategy which
+    // and when the aggregated body contains A+B+C then complete the aggregation
+    // and send it to mock:aggregated
+    .aggregate(header("id"), new BodyInAggregatingStrategy()).completionPredicate(body().contains("A+B+C"))
+        .to("mock:aggregated");
+----
+
+----
+<aggregate strategyRef="myAggregation">
+   <correlationExpression>
+     <simple>${headers.group}</simple>
+   </correlationExpression>
+  <completionPredicate>
+    <simple>${body.size} == 5</simple>
+  </completionPredicate>
+<!-- ... -->
+</aggregate>
+----
+
+Java : 
+
+----
+.aggregate(header("group"), new myAggregationStrategy()).completionPredicate(simple("${body.size} == 5"))
+----
+
+
+Przykład : 
+
+----
+ class StringAggregationStrategy implements AggregationStrategy {
+ 
+     public Exchange aggregate(Exchange oldExchange, Exchange newExchange) {
+         if (oldExchange == null) {
+             return newExchange;
+         }
+ 
+         String oldBody = oldExchange.getIn().getBody(String.class);
+         String newBody = newExchange.getIn().getBody(String.class);
+         oldExchange.getIn().setBody(oldBody + "+" + newBody);
+         return oldExchange;
+     }
+ }
+ 
+ class ArrayListAggregationStrategy implements AggregationStrategy {
+ 
+     public Exchange aggregate(Exchange oldExchange, Exchange newExchange) {
+    Object newBody = newExchange.getIn().getBody();
+    ArrayList<Object> list = null;
+         if (oldExchange == null) {
+        list = new ArrayList<Object>();
+        list.add(newBody);
+        newExchange.getIn().setBody(list);
+        return newExchange;
+         } else {
+            list = oldExchange.getIn().getBody(ArrayList.class);
+        list.add(newBody);
+        return oldExchange;
+    }
+     }
+ }
+----
+  
+=== Nagłówki
+
+
+.Aggregation headers
+[width="100%",frame="topbot",options="header,footer"]
+|======================
+|Nazwa|Typ|Opis
+|Exchange.AGGREGATED_SIZE|int|Ilość komunikatów do przetworzenia
+|Exchange.AGGREGATED_COMPLETED_BY|String|Wskazanie mechanizmu odpowiedzialnego za sposób agregacji : predicate, size, timeout, interval, consumer
+|======================
+
+== resequencer
+
+image:Resequencer.gif[]
+
+** Opisuje jak powinna być kolejność procesowanych wiadomości.
+
+** Stosujemy komparator aby zdefiniować sekwencje wiadomości
+
+=== Batch resequencing 
+
+----
+from("direct:start").resequence().body().to("mock:result");
+----
+
+----
+from("direct:start").resequence(body()).batch().size(300).timeout(4000L).to("mock:result")
+----
+
+This sets the batch size to 300 and the batch timeout to 4000 ms (by default, the batch size is 100 and the timeout is 1000 m
+
+to jest to samo co : 
+
+----
+from("direct:start")
+    .resequence(body()).batch(new BatchResequencerConfig(300, 4000L))
+    .to("mock:result")
+----
+
+lub XMl : 
+
+----
+<camelContext id="camel" xmlns="http://camel.apache.org/schema/spring">
+  <route>
+    <from uri="direct:start" />
+    <resequence>
+      <simple>body</simple>
+      <to uri="mock:result" />
+      <!-- 
+        batch-config can be ommitted for default (batch) resequencer settings
+      -->
+      <batch-config batchSize="300" batchTimeout="4000" />
+    </resequence>
+  </route>
+</camelContext>
+----
+
+=== Stream resequencing 
+
+----
+from("direct:start").resequence(header("seqnum")).stream().to("mock:result");
+----
+
+----
+from("direct:start")
+    .resequence(header("seqnum")).stream().capacity(5000).timeout(4000L)
+    .to("mock:result")
+----
+
+----
+public class MyFileNameExpression implements Expression {
+     
+    public String getFileName(Exchange exchange) {
+        return exchange.getIn().getBody(String.class);
+    }
+     
+    public Object evaluate(Exchange exchange) {
+        // parser the file name with YYYYMMDD-DNNN pattern
+        String fileName = getFileName(exchange);
+        String[] files = fileName.split("-D");
+        Long answer = Long.parseLong(files[0]) * 1000 + Long.parseLong(files[1]);
+        return answer;
+    }
+     
+ 
+    public <T> T evaluate(Exchange exchange, Class<T> type) {
+        Object result = evaluate(exchange);
+        return exchange.getContext().getTypeConverter().convertTo(type, result);
+    }
+ 
+}
+from("direct:start").resequence(new MyFileNameExpression()).stream().timeout(100).to("mock:result");
+----
+
+----
+ExpressionResultComparator<Exchange> comparator = new MyComparator();
+StreamResequencerConfig config = new StreamResequencerConfig(100, 1000L, comparator);
+ 
+from("direct:start")
+    .resequence(header("seqnum")).stream(config)
+    .to("mock:result");
+----
+
+lub XML : 
+
+----
+<camelContext id="camel" xmlns="http://camel.apache.org/schema/spring">
+  <route>
+    <from uri="direct:start"/>
+    <resequence>
+      <simple>in.header.seqnum</simple>
+      <to uri="mock:result" />
+      <stream-config capacity="5000" timeout="4000"/>
+    </resequence>
+  </route>
+</camelContext>
+----
+
+
+== złożonej wiadomości (Composed Message Processor)
+
+image:DistributionAggregate.gif[]
+
+
+Złożona wiadomość jest rozbijana i obsługiwana w postaci mniejszych kawałków a następnie ponownie sklejania w logiczną całość.
+
+
+** Kroki 
+
+*** Rozdziel dużą wiadomość na małe
+
+*** Wykonaj przetwarzanie każdej z nich niezależnie
+
+*** Zagreguje rozłączone przetworzone wiadomości w całość
+
+
+NOTE : Splitter i Aggregator
+
+
+
+== scatter-gather
+
+image:BroadcastAggregate.gif[]
+
+Najpierw następuje rozpoczenie wiadomości (scatter) a następnie zbieramy wyniki przetwarzania (gather)
+
+Pozwala dystrybuować wiadomości do dynamicznych odbiorców a potem zagregować wyniki do pojedyńczego obiektu
+
+----
+<camelContext xmlns="http://camel.apache.org/schema/spring">
+  <route>
+    <from uri="direct:start"/>
+    <recipientList>
+      <header>listOfVendors</header>
+    </recipientList>
+  </route>
+  <route>
+    <from uri="seda:quoteAggregator"/>
+    <aggregate strategyRef="aggregatorStrategy" completionTimeout="1000">
+      <correlationExpression>
+        <header>quoteRequestId</header>
+      </correlationExpression>
+      <to uri="mock:result"/>
+    </aggregate>
+  </route>
+</camelContext>
+
+
+----
+
+
+----
+Map<String, Object> headers = new HashMap<String, Object>();
+headers.put("listOfVendors", "bean:vendor1, bean:vendor2, bean:vendor3");
+headers.put("quoteRequestId", "quoteRequest-1");
+template.sendBodyAndHeaders("direct:start", "<quote_request item=\"beer\"/>", headers);
+----
+
+----
+public class MyVendor {
+    private int beerPrice;
+     
+    @Produce(uri = "seda:quoteAggregator")
+    private ProducerTemplate quoteAggregator;
+             
+    public MyVendor(int beerPrice) {
+        this.beerPrice = beerPrice;
+    }
+         
+    public void getQuote(@XPath("/quote_request/@item") String item, Exchange exchange) throws Exception {
+        if ("beer".equals(item)) {
+            exchange.getIn().setBody(beerPrice);
+            quoteAggregator.send(exchange);
+        } else {
+            throw new Exception("No quote available for " + item);
+        }
+    }
+}
+
+
+----
+
+Spring : 
+
+----
+<bean id="aggregatorStrategy" class="org.apache.camel.spring.processor.scattergather.LowestQuoteAggregationStrategy"/>
+ 
+<bean id="vendor1" class="org.apache.camel.spring.processor.scattergather.MyVendor">
+  <constructor-arg>
+    <value>1</value>
+  </constructor-arg>
+</bean>
+ 
+<bean id="vendor2" class="org.apache.camel.spring.processor.scattergather.MyVendor">
+  <constructor-arg>
+    <value>2</value>
+  </constructor-arg>
+</bean>
+ 
+<bean id="vendor3" class="org.apache.camel.spring.processor.scattergather.MyVendor">
+  <constructor-arg>
+    <value>3</value>
+  </constructor-arg>
+</bean>
+
+public class LowestQuoteAggregationStrategy implements AggregationStrategy {
+    public Exchange aggregate(Exchange oldExchange, Exchange newExchange) {
+        // the first time we only have the new exchange
+        if (oldExchange == null) {
+            return newExchange;
+        }
+ 
+        if (oldExchange.getIn().getBody(int.class) < newExchange.getIn().getBody(int.class)) {
+            return oldExchange;
+        } else {
+            return newExchange;
+        }
+    }
+}
+----
+
+== routing slip
+
+
+image:RoutingTableSimple.gif[]
+
+Routnig polegający na określeniu wielu odbiorców
+
+Pozwala na skierowanie wiadomości kolejno przez szereg etapów procesu w którym sekwencja nie jest znana w czasie projektowania procesu. 
+
+----
+from("direct:c").routingSlip(header("aRoutingSlipHeader"), "#");
+----
+
+lub Xml : 
+
+----
+<camelContext id="buildRoutingSlip" xmlns="http://activemq.apache.org/camel/schema/spring">
+  <route>
+    <from uri="direct:c"/>
+    <routingSlip uriDelimiter="#">
+       <header>aRoutingSlipHeader</header>
+    </routingSlip>
+  </route>
+</camelContext>
+----
+
+Od wersji 2.4
+
+----
+from("direct:a").routingSlip(header("myHeader")).ignoreInvalidEndpoints();
+----
+
+lub Xml : 
+
+----
+route>
+    <from uri="direct:a"/>   
+    <routingSlip ignoreInvalidEndpoints="true">
+        <header>myHeader</header>
+    </routingSlip>
+</route>
+----
+
+=== @RoutingSlip
+
+----
+@Consume(uri = "direct:routingSlipAnnotated")
+@RoutingSlip(delimiter = ",")
+public List<String> routeMe(String body,
+@Headers Map<String, Object> headers) {
+//...
+}
+----
+
+
+== process manager  (Process Manager)
+
+image:ProcessManager.gif[]
+
+Orkiestracja , choreografia i kompozycja
+
+Można użyć wzorca Apache Camel : **Dynamic Router** jako zamiennika
+
+image:DynamicRouter.gif[]
+    
+----
+from("direct:start")
+    // use a bean as the dynamic router
+    .dynamicRouter(method(DynamicRouterTest.class, "slip"));
+----
+    
+----
+public String slip(String body) {
+    bodies.add(body);
+    invoked++;
+ 
+    if (invoked == 1) {
+        return "mock:a";
+    } else if (invoked == 2) {
+        return "mock:b,mock:c";
+    } else if (invoked == 3) {
+        return "direct:foo";
+    } else if (invoked == 4) {
+        return "mock:result";
+    }
+ 
+    // no more so return null
+    return null;
+}
+----
+
+
+----
+public String slip(String body, @Properties Map<String, Object> properties) {
+    bodies.add(body);
+ 
+    // get the state from the exchange properties and keep track how many times
+    // we have been invoked
+    int invoked = 0;
+    Object current = properties.get("invoked");
+    if (current != null) {
+        invoked = Integer.valueOf(current.toString());
+    }
+    invoked++;
+    // and store the state back on the properties
+    properties.put("invoked", invoked);
+ 
+    if (invoked == 1) {
+        return "mock:a";
+    } else if (invoked == 2) {
+        return "mock:b,mock:c";
+    } else if (invoked == 3) {
+        return "direct:foo";
+    } else if (invoked == 4) {
+        return "mock:result";
+    }
+ 
+    // no more so return null
+    return null;
+}
+
+----
+
+
+
+lub Spring : 
+ 
+----
+<bean id="mySlip" class="org.apache.camel.processor.DynamicRouterTest"/>
+ 
+<camelContext xmlns="http://camel.apache.org/schema/spring">
+    <route>
+        <from uri="direct:start"/>
+        <dynamicRouter>
+            <!-- use a method call on a bean as dynamic router -->
+            <method ref="mySlip" method="slip"/>
+        </dynamicRouter>
+    </route>
+ 
+    <route>
+        <from uri="direct:foo"/>
+        <transform><constant>Bye World</constant></transform>
+    </route>
+ 
+</camelContext>
+----
+
+lub adnotacji   **@DynamicRouter** : 
+
+----
+public class MyDynamicRouter {
+
+    @Consume(uri = "activemq:foo")
+    @DynamicRouter
+    public String route(@XPath("/customer/id") String customerId, @Header("Location") String location, Document body) {
+        // query a database to find the best match of the endpoint based on the input parameteres
+        // return the next endpoint uri, where to go. Return null to indicate the end.
+    }
+}
+----
+
+    
+
+== pośrednik (broker) (Message Broker)
+
+image:MessageBroker.gif[]
+
+Realizacja wzroca hub-and-spoke.
+
+==  throttler (Top ten)
+
+Zapobiega przeciążeniu punktu końcowego
+
+----
+from("seda:a").throttle(3).timePeriodMillis(10000).to("log:result", "mock:result");
+
+//lub
+
+from("timer:fire?period=100").convertBodyTo(String.class).setBody(simple("Hello przodownik")).setHeader("id", simple("YA")).throttle(2)
+             .timePeriodMillis(1000).to("log:myCamel?level=INFO&showAll=false&multiline=true");
+----
+
+
+
+----
+
+<route>
+  <from uri="seda:a"/>
+  <!-- throttle 3 messages per 10 sec -->
+  <throttle timePeriodMillis="10000">
+    <constant>3</constant>
+    <to uri="log:result"/>
+    <to uri="mock:result"/>
+  </throttle>
+</route>
+----
+
+
+Dynamically changing maximum requests per period
+----
+<route>
+  <from uri="direct:expressionHeader"/>
+  <throttle timePeriodMillis="500">
+    <!-- use a header to determine how many messages to throttle per 0.5 sec -->
+    <header>throttleValue</header>
+    <to uri="log:result"/>
+    <to uri="mock:result"/>
+  </throttle>
+</route>
+----
+
+=== Wątkowo
+
+----
+<threadPoolProfile id="myThrottler" poolSize="5" maxPoolSize="20"  maxQueueSize="1000"/>
+
+<throttle timePeriodMillis="10000" asyncDelayed="true" executorServiceRef="myThrottler">
+   <constant>10</constant>
+  <to uri="mock:throttled"/>
+</throttle>
+
+----
+
+== load balancer (Top ten)
+
+Rozprasza obiążenie pomiędzy kolejne punkty końcowe
+
+===  Round Robin (karuzela)
+
+----
+from("direct:start").loadBalance().
+roundRobin().to("mock:x", "mock:y", "mock:z");
+----
+
+----
+<camelContext id="camel" xmlns="http://camel.apache.org/schema/spring">
+  <route>
+    <from uri="direct:start"/>
+    <loadBalance>        
+        <roundRobin/>
+        <to uri="mock:x"/>        
+        <to uri="mock:y"/>       
+        <to uri="mock:z"/>                 
+    </loadBalance>
+  </route>
+</camelContext>
+----
+	
+=== Random 
+
+Wybiera losowy punkt końcowy
+
+	
+=== Sticky	
+
+Używa wyrażenia do określenia konkretnego punktu końcowego
+
+----
+.loadBalance().sticky(header("customerId"))
+----
+
+=== Topic
+
+Działa podobnie do JMS Topic
+
+=== Failover
+
+Przekierowuje na następny jeśli bieżący jest nieaktywny
+
+----
+<route errorHandlerRef="myErrorHandler">
+   <from uri="direct:foo"/>
+   <loadBalance>
+       <failover>
+           <exception>java.io.IOException</exception>
+           <exception>com.mycompany.MyOtherException</exception>
+       </failover>
+       <to uri="direct:a"/>
+       <to uri="direct:b"/>
+   </loadBalance>
+ </route>
+----
+
+----
+from("direct:start")
+    // Use failover load balancer in stateful round robin mode
+    // which mean it will failover immediately in case of an exception
+    // as it does NOT inherit error handler. It will also keep retrying as
+    // its configured to newer exhaust.
+    .loadBalance().failover(-1, false, true).
+        to("direct:bad", "direct:bad2", "direct:good", "direct:good2");
+----
+
+----
+.failover(IllegalStateException.class)
+----
+
+	
+=== Weighted Round-Robin
+
+Działa podobnie jak **Round-Robin** z tą różnicą , że możemy określić wagi priorytetu
+
+----
+// round-robin
+from("direct:start")
+    .loadBalance().weighted(true, "4:2:1" distributionRatioDelimiter=":")
+    .to("mock:x", "mock:y", "mock:z");
+ 
+//random
+from("direct:start")
+    .loadBalance().weighted(false, "4,2,1")
+    .to("mock:x", "mock:y", "mock:z");
+----
+
+lub XML : 
+
+----
+<route>
+  <from uri="direct:start"/>
+  <loadBalance>
+    <weighted roundRobin="false" distributionRatio="4-2-1" distributionRatioDelimiter="-" />
+      <to uri="mock:x"/>
+      <to uri="mock:y"/>
+      <to uri="mock:z"/>
+  </loadBalance>
+</route>
+----
+	
+=== Weighted Random
+
+Działa podobnie jak **Random** z tą różnicą , że możemy określić wagi priorytetu
+	
+=== Custom
+
+Możemy określić sami politykę rozpraszania widomości
+
+----
+from("direct:start")
+    // using our custom load balancer
+    .loadBalance(new MyLoadBalancer())
+    .to("mock:x", "mock:y", "mock:z");
+----
+
+lub XML : 
+
+----
+<bean id="myBalancer" class="org.apache.camel.processor.CustomLoadBalanceTest$MyLoadBalancer"/>
+ 
+<camelContext xmlns="http://camel.apache.org/schema/spring">
+  <route>
+    <from uri="direct:start"/>
+    <loadBalance>
+      <!-- refer to my custom load balancer -->
+      <custom ref="myBalancer"/>
+      <!-- these are the endpoints to balancer -->
+      <to uri="mock:x"/>
+      <to uri="mock:y"/>
+      <to uri="mock:z"/>
+    </loadBalance>
+  </route>
+</camelContext>
+----
+	
+=== Circuit Breaker
+
+----
+from("direct:start").loadBalance()
+    .circuitBreaker(2, 1000L, MyCustomException.class)
+    .to("mock:result");
+----
+
+lub XML : 
+
+----
+<camelContext id="camel" xmlns="http://camel.apache.org/schema/spring">
+    <route>
+    <from uri="direct:start"/>
+    <loadBalance>
+        <circuitBreaker threshold="2" halfOpenAfter="1000">
+            <exception>MyCustomException</exception>
+        </circuitBreaker>
+        <to uri="mock:result"/>
+    </loadBalance>
+</route>
+</camelContext>
+----
+
+== multicast (Top ten)
+
+----
+from("direct:a").multicast().to("direct:x", "direct:y", "direct:z");
+----
+
+----
+from("direct:a").multicast().parallelProcessing().to("direct:x", "direct:y", "direct:z");
+----
+
+----
+from("direct:start")
+  .multicast(new MyAggregationStrategy())
+  .parallelProcessing().timeout(500).to("direct:a", "direct:b", "direct:c")
+  .end()
+  .to("mock:result");
+----
+
+
+----
+from("direct:start")
+    .multicast()
+        .stopOnException().to("direct:foo", "direct:bar", "direct:baz")
+    .end()
+    .to("mock:result");
+ 
+    from("direct:foo").to("mock:foo");
+ 
+    from("direct:bar").process(new MyProcessor()).to("mock:bar");
+ 
+    from("direct:baz").to("mock:baz");
+----
+
+to samo w XML :
+
+----
+<route>
+    <from uri="direct:start"/>
+    <multicast stopOnException="true">
+        <to uri="direct:foo"/>
+        <to uri="direct:bar"/>
+        <to uri="direct:baz"/>
+    </multicast>
+    <to uri="mock:result"/>
+</route>
+ 
+<route>
+    <from uri="direct:foo"/>
+    <to uri="mock:foo"/>
+</route>
+ 
+<route>
+    <from uri="direct:bar"/>
+    <process ref="myProcessor"/>
+    <to uri="mock:bar"/>
+</route>
+ 
+<route>
+    <from uri="direct:baz"/>
+    <to uri="mock:baz"/>
+</route>
+----
+
+== loop (iteracja)
+
+Pozwala wprowadzić iteracje w kanale wiadomości.
+
+----
+from("direct:a").loop(8).to("mock:result");
+----
+
+
+----
+from("direct:b").loop(header("loop")).to("mock:result");
+----
+
+
+----
+from("direct:c").loop().xpath("/hello/@times").to("mock:result");
+----
+
+----
+<route>
+  <from uri="direct:a"/>
+  <loop>
+    <constant>8</constant>
+    <to uri="mock:result"/>
+  </loop>
+</route>
+----
+
+----
+from("direct:start")
+    // by default loop will keep using the same exchange so on the 2nd and 3rd iteration its
+    // the same exchange that was previous used that are being looped all over
+    .loop(3)
+        .transform(body().append("B"))
+        .to("mock:loop")
+    .end()
+    .to("mock:result");
+----
+
+
+== delay (opóźnienie)
+
+----
+from("seda:b").delay(1000).to("mock:result");
+----
+
+----
+from("activemq:someQueue").resequencer(header("MyDeliveryTime")).delay("MyRedeliveryTime").to("activemq:aDelayedQueue");
+----
+
+----
+from("activemq:someQueue").delay(header("delayValue")).to("activemq:aDelayedQueue");
+----
+
+----
+<bean id="myDelayBean" class="org.apache.camel.processor.MyDelayCalcBean"/>
+<bean id="exchangeAwareBean" class="org.apache.camel.processor.ExchangeAwareDelayCalcBean"/>
+ 
+<camelContext xmlns="http://camel.apache.org/schema/spring">
+    <route>
+        <from uri="seda:a"/>
+        <delay>
+            <header>MyDelay</header>
+        </delay>
+        <to uri="mock:result"/>
+    </route>
+    <route>
+        <from uri="seda:b"/>
+        <delay>
+            <constant>1000</constant>
+        </delay>
+        <to uri="mock:result"/>
+    </route>
+    <route>
+        <from uri="seda:c"/>
+        <delay>
+            <method ref="myDelayBean" method="delayMe"/>
+        </delay>
+        <to uri="mock:result"/>
+    </route>
+    <route>
+        <from uri="seda:d"/>
+        <delay>
+            <method ref="exchangeAwareBean" method="delayMe"/>
+        </delay>
+        <to uri="mock:result"/>
+    </route>
+</camelContext>
+----
+

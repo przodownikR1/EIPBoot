@@ -1,0 +1,203 @@
+:icons: font
+:pagenums:
+:imagesdir: images
+:iconsdir: ./icons
+:stylesdir: ./styles
+:scriptsdir: ./js
+
+:image-link: https://pbs.twimg.com/profile_images/425289501980639233/tUWf7KiC.jpeg
+ifndef::sourcedir[:sourcedir: ./src/main/java/]
+ifndef::resourcedir[:resourcedir: ./src/main/resources/]
+ifndef::imgsdir[:imgsdir: ./../images]
+:source-highlighter: coderay
+
+
+== Monitoring
+
+== Rodzaje
+
+=== JVM
+
+JMX
+
+=== Sieć
+
+** Jetty
+
+----
+from("jetty:http//0.0.0.0:8080/ping").transform(constant("PONG\n"));
+----
+
+** Jolokia
+
+
+=== Aplikacja
+
+JMX
+
+== Tracer
+
+----
+public class TraceRouteBuilder extends RouteBuilder {
+@Override
+public void configure() throws Exception {
+  getContext().setTracing(true);
+  //dalsza część trasy
+}
+}
+----
+
+Spring XML :
+
+----
+<camelContext trace="true" xmlns="http://camel.apache.org/schema/spring">
+----
+
+
+=== Dopasowywanie 
+
+----
+public void configure() throws Exception {
+    getContext().setTracing(true);
+    Tracer tracer = new Tracer();
+    tracer.setLogName("MyTracerLog");
+    tracer.getDefaultTraceFormatter().setShowProperties(true);
+    tracer.getDefaultTraceFormatter().setShowHeaders(false);
+    getContext().addInterceptStrategy(tracer);
+    // Define route(s) after tracer
+}
+----
+
+== Debugger
+
+== JMX
+
+=== Wyłączenie
+
+----
+context.disableJMX();
+----
+
+=== Dopasowywanie 
+
+----
+<jmxAgent id="agent" connectorPort="1099" createConnector="false" usePlatformMBeanServer="true"
+serviceUrlPath="/jmxrmi/camel" loadStatisticsEnabled="true" statisticsLevel="All"/>
+----
+
+Java : 
+
+----
+final CamelContext context = new DefaultCamelContext();
+// configure JMX settings
+final ManagementStrategy managementStrategy = context.getManagementStrategy();
+managementStrategy.setStatisticsLevel(ManagementStatisticsLevel.All);
+managementStrategy.setLoadStatisticsEnabled(true);
+final ManagementAgent managementAgent = managementStrategy.getManagementAgent();
+managementAgent.setConnectorPort(1099);
+managementAgent.setServiceUrlPath("/jmxrmi/camel");
+managementAgent.setCreateConnector(false);
+managementAgent.setUsePlatformMBeanServer(true);
+// trasy
+context.start();
+----
+
+== Logowanie 
+
+----
+<route>
+<from uri="direct:start"/> <log loggingLevel="INFO" logName="MyLogName" message="Something happened - ${body}"/>
+<to uri="mock:result"/>
+</route>
+----
+
+=== LOG EIP
+
+----
+from("file://myFile").log("Here you are :  ${file:name} containing: ${body}").to("file://end");
+----
+
+== Wire Tap
+
+
+== CAMEL-METRICS
+
+----
+<dependency>
+    <groupId>org.apache.camel</groupId>
+    <artifactId>camel-metrics</artifactId>
+    <version>x.x.x</version>
+    <!-- use the same version as your Camel core version -->
+</dependency>
+----
+
+=== Konfiguracja globalna
+
+----
+@Configuration
+public static class MyConfig extends SingleRouteCamelConfiguration {
+ 
+    @Bean
+    @Override
+    public RouteBuilder route() {
+        return new RouteBuilder() {
+            @Override
+            public void configure() throws Exception {
+                // define Camel routes here
+            }
+        };
+    }
+ 
+    @Bean(name = MetricsComponent.METRIC_REGISTRY_NAME)
+    public MetricRegistry getMetricRegistry() {
+        MetricRegistry registry = ...;
+        return registry;
+    }
+}
+----
+
+
+** counter
+
+----
+// increment counter simple.counter by 1
+from("direct:in")
+    .to("metric:counter:simple.counter")
+    .to("direct:out");
+----
+
+
+** histogram
+
+----
+from("direct:in")
+    .to("metric:histogram:simple.histogram?value=9923")
+    .to("direct:out");
+----
+
+
+** meter
+
+----
+from("direct:in")
+    .to("metric:meter:simple.meter?mark=81")
+    .to("direct:out");
+----
+    
+
+** timer
+
+----
+from("direct:in")
+    .to("metrics:timer:simple.timer?action=start")
+    .to("direct:calculate")
+    .to("metrics:timer:simple.timer?action=stop");
+----
+    
+
+
+== Hawio
+
+
+
+

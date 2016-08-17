@@ -1,0 +1,298 @@
+:numbered:
+:icons: font
+:pagenums:
+:imagesdir: images
+:iconsdir: ./icons
+:stylesdir: ./styles
+:scriptsdir: ./js
+
+:image-link: https://pbs.twimg.com/profile_images/425289501980639233/tUWf7KiC.jpeg
+ifndef::sourcedir[:sourcedir: ./src/main/java/]
+ifndef::resourcedir[:resourcedir: ./src/main/resources/]
+ifndef::imgsdir[:imgsdir: ./../images]
+:source-highlighter: coderay
+
+== Transformacja 
+
+image:messageTransformation.png[]
+
+=== opakowanie (Envelope Wrapper)
+
+image:Wrapper.gif[]
+
+Odpowiada za opakowanie wiadomości - wrapper java
+
+=== wzbogacenie (Enricher)
+
+image:DataEnricher.gif[]
+
+Wzbogaca wiadomość o brakujący element lub wartość.
+
+Czesto korzysta z zewnętrznych zasobów jak baza danych czy webserwis.
+
+----
+AggregationStrategy aggregationStrategy = ...
+ 
+from("direct:start")
+.enrich("direct:resource", aggregationStrategy)
+.to("direct:result");
+ 
+from("direct:resource")
+...
+----
+
+----
+public class ExampleAggregationStrategy implements AggregationStrategy {
+ 
+    public Exchange aggregate(Exchange original, Exchange resource) {
+        Object originalBody = original.getIn().getBody();
+        Object resourceResponse = resource.getIn().getBody();
+        Object mergeResult = ... // combine original body and resource response
+        if (original.getPattern().isOutCapable()) {
+            original.getOut().setBody(mergeResult);
+        } else {
+            original.getIn().setBody(mergeResult);
+        }
+        return original;
+    }
+     
+}
+----
+
+Spring XML : 
+
+----
+<camelContext id="camel" xmlns="http://camel.apache.org/schema/spring">
+  <route>
+    <from uri="direct:start"/>
+    <enrich strategyRef="aggregationStrategy">
+      <constant>direct:resource</constant>
+    <to uri="direct:result"/>
+  </route>
+  <route>
+    <from uri="direct:resource"/>
+    ...
+  </route>
+</camelContext>
+ 
+<bean id="aggregationStrategy" class="..." />
+
+----
+
+
+** **pollEnrich** 
+
+Łączy dane orginalne z danymi pochodzącymi z innego źródła za pomocą **Polling Consumer**
+
+NOTE: Event Message 
+
+NOTE : FILE, FTP etc
+
+----
+from("direct:start")
+  .pollEnrich("file:inbox?fileName=data.txt")
+  .to("direct:result");
+----
+
+----
+from("activemq:queue:order")
+   .pollEnrich("file://order/data/additional?fileName=orderId", 20000) // timeout is in milliseconds
+   .to("bean:processOrder");
+----   
+
+
+** **enrich** 
+
+Łączy dane orginalne z danymi pochodzącymi z innego źródła za **producer**
+
+NOTE: Request Reply 
+
+NOTE: WS
+
+----
+AggregationStrategy aggregationStrategy = ...
+ 
+from("direct:start")
+.enrich("direct:resource", aggregationStrategy)
+.to("direct:result");
+ 
+from("direct:resource")
+...
+----
+
+----
+public class ExampleAggregationStrategy implements AggregationStrategy {
+ 
+    public Exchange aggregate(Exchange original, Exchange resource) {
+        Object originalBody = original.getIn().getBody();
+        Object resourceResponse = resource.getIn().getBody();
+        Object mergeResult = ... // combine original body and resource response
+        if (original.getPattern().isOutCapable()) {
+            original.getOut().setBody(mergeResult);
+        } else {
+            original.getIn().setBody(mergeResult);
+        }
+        return original;
+    }
+     
+}
+----
+
+
+=== fitrowanie treści (Content Filter)
+
+image:ContentFilter.gif[]
+
+Uzyskiwanie prostszej struktury wiadomości
+
+----
+from("direct:start").setBody(body().append(" World!")).to("mock:result");
+----
+
+----
+from("direct:start").process(new Processor() {
+    public void process(Exchange exchange) {
+        Message in = exchange.getIn();
+        in.setBody(in.getBody(String.class) + " World!");
+    }
+}).to("mock:result");
+----
+
+** Możemy filtrować za pomocą
+
+*** XQuery
+
+*** Sql
+
+*** Scripting Languages
+
+
+=== claim check
+
+image:StoreInLibrary.gif[]
+
+NOTE: Content Filter + Enricher
+
+----
+from("direct:start").to("bean:checkLuggage", "mock:testCheckpoint", "bean:dataEnricher", "mock:result");
+----
+
+Spring XMl : 
+
+----
+<route>
+    <from uri="direct:start"/>
+    <pipeline>
+        <to uri="bean:checkLuggage"/>
+        <to uri="mock:testCheckpoint"/>
+        <to uri="bean:dataEnricher"/>
+        <to uri="mock:result"/>
+    </pipeline>
+</route>
+----
+
+----
+public static final class CheckLuggageBean {        
+    public void checkLuggage(Exchange exchange, @Body String body, @XPath("/order/@custId") String custId) {   
+        // store the message body into the data store, using the custId as the claim check
+        dataStore.put(custId, body);
+        // add the claim check as a header
+        exchange.getIn().setHeader("claimCheck", custId);
+        // remove the body from the message
+        exchange.getIn().setBody(null);
+    }
+}    
+----
+
+----
+public static final class DataEnricherBean {
+    public void addDataBackIn(Exchange exchange, @Header("claimCheck") String claimCheck) { 
+        // query the data store using the claim check as the key and add the data
+        // back into the message body
+        exchange.getIn().setBody(dataStore.get(claimCheck));
+        // remove the message data from the data store
+        dataStore.remove(claimCheck);
+        // remove the claim check header
+        exchange.getIn().removeHeader("claimCheck");
+    }
+}    
+
+----
+
+
+
+=== normalizacja (Normalizer)
+
+image:normalizer.png[]
+
+Modyfikacja wiadomości do postaci znormalizowanej
+
+----
+from("direct:start")
+    .choice()
+        .when().xpath("/employee").to("bean:normalizer?method=employeeToPerson")
+        .when().xpath("/customer").to("bean:normalizer?method=customerToPerson")
+    .end()
+    .to("mock:result");
+----
+
+----
+public class MyNormalizer {
+    public void employeeToPerson(Exchange exchange, @XPath("/employee/name/text()") String name) {
+        exchange.getOut().setBody(createPerson(name));            
+    }
+ 
+    public void customerToPerson(Exchange exchange, @XPath("/customer/@name") String name) {
+        exchange.getOut().setBody(createPerson(name));
+    }        
+     
+    private String createPerson(String name) {
+        return "<person name=\"" + name + "\"/>";
+    }
+}    
+----
+
+Spring XML : 
+
+----
+<camelContext xmlns="http://camel.apache.org/schema/spring">
+  <route>
+    <from uri="direct:start"/>
+    <choice>
+      <when>
+        <xpath>/employee</xpath>
+        <to uri="bean:normalizer?method=employeeToPerson"/>
+      </when>
+      <when>
+        <xpath>/customer</xpath>
+        <to uri="bean:normalizer?method=customerToPerson"/>
+      </when>
+    </choice>
+    <to uri="mock:result"/>
+  </route> 
+</camelContext>
+ 
+<bean id="normalizer" class="org.apache.camel.processor.MyNormalizer"/>
+----
+
+----
+from("myComponent:endpointA"
+).choice() 
+   .when(myMessageFormat1Predicate).process(myXformProcessor1).to("myComponent:endpointB") 
+   .when(myMessageFormat2Predicate) .setBody(myXformExpression2).to("myComponent:endpointB") 
+   .when(myMessageFormat3Predicate) .process(myXformProcessor3).to("myComponent:endpointB") 
+   .otherwise() 
+      .to(
+"myComponent:invalidMessageChannel"
+); 
+----
+
+
+=== kanonizacja (Canonical Data Model)
+
+image:CanonicalDataModel.gif[]
+
+Modyfikacja wiadomości do postaci kanonicznej
+
+
+NOTE: TypeConverter

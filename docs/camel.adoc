@@ -1,0 +1,1826 @@
+= EIP/Apache Camel
+
+:numbered:
+:icons: font
+:pagenums:
+:imagesdir: images
+:iconsdir: ./icons
+:stylesdir: ./styles
+:scriptsdir: ./js
+
+:image-link: https://pbs.twimg.com/profile_images/425289501980639233/tUWf7KiC.jpeg
+ifndef::sourcedir[:sourcedir: ./src/main/java/]
+ifndef::resourcedir[:resourcedir: ./src/main/resources/]
+ifndef::imgsdir[:imgsdir: ./../images]
+:source-highlighter: coderay
+
+
+
+== O mnie
+* Architect Solution - RiscoSoftware 
+* VavaTech trener : Spring ekosystem, JPA , EIP Camel 
+* Sages trener : JPA , EIP - Apache Camel 
+* blog link:http://przewidywalna-java.blogspot.com[]
+* twitter przodownikR1
+
+image:{image-link} [role='img-circle']
+
+
+include::integracja.adoc[]
+
+
+== Exchange Message 
+
+image:message.png[]
+
+
+Wiadomości służa do transportu danych pomiędzy różnymi punktami końcowymi.
+
+Wiadomość posiada jeden kierunek od źródła do odbiornika.
+
+WARNING: Nie jest możliwe użycie tej samej wiadomości do odpowiedzenia dla inicjatora wiadomości - źródła. Konieczne jest stworzenie drugiej wiadomości.
+
+W skład wiadomości wchodzą :
+
+** nagłówki (Header)
+
+[source,java]
+----
+.setHeader("orderId", simple("${body.orderId}"))
+----
+
+*** wskazówki związane z wiadomością i jej procesowaniem
+
+** unikalny identyfikator wiadomości Exchange (ID)
+
+*** typ String
+
+*** tworzony przez silnik Camela
+
+** Załączniki (Attachment)
+
+*** mapy<String,Object>
+
+** Flaga błędu (Fault flag)
+
+*** określa czy wiadomość została przeprocesowana dobrze, czy nastąpiły problemy - wyjątki
+
+** Body 
+
+*** treść, wartość niosiona przez wiadomość
+
+*** typ Object
+
+[source,java]
+----
+.setBody(simple("${body.get(0)}"))
+----
+
+
+*** Message Exchange Pattern w skrócie MEP
+
+*** dwie wiadomości 
+
+*** ewentualne wyjątki.
+
+** **InOnly—A** one-way message (znaną też jako Event message).
+
+ Czesto JMS wykorzystuje one-way messaging. Odpal i zapomij operacja jednokierunkowa.
+ 
+ Nie oczekujemy informacji zwrotnej
+ 
+ source:https://access.redhat.com/documentation/en-US/Red_Hat_JBoss_Fuse/6.0/html/Implementing_Enterprise_Integration_Patterns/files/BasicPrinciples-PipelineProcessing.html
+ 
+ image:inOnly.gif[]
+ 
+ ----
+ from("activemq:userdataQueue")
+    .to(ExchangePattern.InOut, "velocity:file:AdressTemplate.vm")
+    .to("activemq:envelopeAddresses");
+ ----
+
+** **InOut—A** request-response message.
+
+  Transport typu HTTP często bazuje na tego typu wiadomości gdzie żąda wyświetlenia strony ale musi i czeka na odpowiedź serwera. Żądanie-odpowiedź.
+ 
+  WS/SOAP
+  
+ source:https://access.redhat.com/documentation/en-US/Red_Hat_JBoss_Fuse/6.0/html/Implementing_Enterprise_Integration_Patterns/files/BasicPrinciples-PipelineProcessing.html
+  
+  image:inOut.gif[]
+  
+[source,java] 
+----
+ from("jetty:http://localhost:8080/foo")
+    .to("cxf:bean:addAccountDetails")
+    .to("cxf:bean:getCreditRating")
+    .to("cxf:bean:processTransaction");
+---- 
+  
+
+** **MEP**
+
+Określa czy użyć styl InOut, czy InOnly.
+ 
+To skrót określający wzorzec wymiany komunikatów. Jest to termin zaczerpnięty z nomenklatury SOA. Najbardziej znany przykład tego wzorca to 'żądanie-odpowiedź' - usługodawca wysyła komunikat-żądanie do usługi-dostarczyciela. Po poprawnym odebraniu komunikatu wysyła do jego nadawcy komunikat-odpowiedź w kierunku przeciwnym przez usługę dostarczyciela.
+
+
+** **Exception** - ewentualne błędy, które pojawią się podczas routingu wiadomości.
+
+** **Processor** jest to bazowy interfejs służący do przetwarzania wiadomości. Generalnie implementowany zawsze przez programistę.
+
+** **Route** 
+
+
+
+
+== Routes (Trasy)
+
+
+source: https://access.redhat.com/documentation/en-US/Red_Hat_JBoss_Fuse/6.0/html/Implementing_Enterprise_Integration_Patterns/files/FMRS.BJDS.html
+
+image:route.gif[]
+
+zestaw kroków zdefiniowanych przez programistę zaczynając od słowa kluczowego a zarazem Endpointu "from". 
+Trasy są z reguły luźno powiązane i powinny być łatwe do przetestowania i użycia w innym miejscu systemu.
+
+*** zdecydują o dynamicznym zachowaniu serwera 
+
+*** pozwalają w elastyczny sposób dodać dodatkowe przetwarzanie
+
+*** powalają odseparować klienta od logiki serwera
+
+*** umożliwiają mockowanie procesów
+
+*** promują najlepsze praktyki projektowe
+
+*** mogą być wykorzystane w systemach typu ESB 
+
+*** określają zakresy transakcji
+
+*** określają zakres polityki obsługi błędów
+
+*** pozwalają na ponowne wykorzystanie kodu
+
+*** ułatwiają testowalność
+
+=== RouteBuilder 
+
+** **org.apache.camel.builder.RouteBuilder**
+
+Klasa pozwalająca w prosty sposób budować trasy
+
+
+[source,java]
+----
+public class ReportIncidentRoutes extends RouteBuilder {
+    public void configure() throws Exception {        
+        from("direct:start")
+             //..
+            .to("velocity:MailBody.vm");
+    }
+ 
+}
+----
+
+=== Nadanie ID dla trasy 
+
+[source,java]
+----
+from("Source").routeId("myRouteId").process(...).to(Target);
+----
+
+Spring XML : 
+
+----
+<camelContext id="CamelContextID" xmlns="http://camel.apache.org/schema/spring">
+  <route id="myRouteId" >
+    <from uri="Source"/>
+    <process ref="myProcessor"/>
+    <to uri="Target"/>
+  </route>
+</camelContext>
+----
+
+=== Anulowanie auto-startu trasy
+
+[source,java]
+----
+from("SourceURI").routeId("myRoute1").autoStartup(false).to(TargetURI);
+----
+
+Spring XML : 
+
+----
+<camelContext id="CamelContextID" xmlns="http://camel.apache.org/schema/spring">
+  <route id="myId" autoStartup="false">
+    <from uri="Source"/>
+    <to uri="Target"/>
+  </route>
+</camelContext>
+----
+
+=== Programowy start i stop
+
+** Start:
+
+[source,java] 
+----
+context.startRoute("nonAuto");
+----
+
+** Stop
+
+[source,java]
+----
+context.stopRoute("nonAuto");
+----
+
+[source,java]
+----
+public class RouteStoppingProcessor implements Processor {
+@Override
+public void process(Exchange exchange) throws Exception {
+final String routeName =exchange.getIn().getBody(String.class);
+final CamelContext context = exchange.getContext();
+
+new Thread(new Runnable() {
+@Override
+public void run() {
+try {
+    context.stopRoute(routeName);
+} catch (Exception e) {
+   throw new RuntimeException(e);
+}
+}
+}).start();
+}
+}
+----
+
+NOTE: zawsze staraj się zamykać trase w osobnym wątku.
+
+
+NOTE: **EIP ControlBus**
+
+=== Tworzenie porządku startu tras
+
+[source,java]
+----
+from("jetty:http://fooserver:8080")
+    .routeId("first")
+    .startupOrder(2)
+    .to("seda:buffer");
+
+from("seda:buffer")
+    .routeId("second")
+    .startupOrder(1)
+    .to("mock:result");
+
+from("jms:queue:foo").to("jms:queue:bar");
+----
+
+Spring XML : 
+
+----
+<route id="first" startupOrder="2">
+    <from uri="jetty:http://fooserver:8080"/>
+    <to uri="seda:buffer"/>
+</route>
+
+<route id="second" startupOrder="1">
+    <from uri="seda:buffer"/>
+    <to uri="mock:result"/>
+</route>
+
+<!-- This route's startup order is unspecified -->
+<route>
+    <from uri="jms:queue:foo"/>
+    <to uri="jms:queue:bar"/>
+</route>
+
+----
+
+=== Reużywalność
+
+** direct
+
+[source,java]
+----
+from("direct:startHere").transform(simple("Hello, ${body}")).log("my message: ${body}");
+----
+ 
+
+=== Asynchroniczność
+
+** seda 
+
+[source,java]
+----
+from("timer:ping?period=200").to("seda:longRunningTask"); 
+----
+
+
+=== Potencjale problemy 
+
+
+WARNING: org.apache.camel.CamelExchangeException: No consumers available on endpoint
+
+----
+<route startupOrder="200">
+<from uri="jms:queue:invoices"/>
+<to uri="direct:invoicePayment"/>
+</route>
+
+
+<route startupOrder="100">
+<from uri="direct:invoicePayment"/>
+<process ref="paymentProcessor"/>
+</route>
+----
+
+** Java
+
+[source,java]
+----
+from("jms:queue:invoices").startupOrder(200).to("direct:invoicePayment");
+
+from("direct:invoicePayment").startupOrder(100).process(new PaymentProcessor());
+----
+
+== Context 
+
+
+** ładowanie i definicja wszystkich komponentów, tras, konwerterów oraz ustawień potrzebnych aby wystartować proces Camela.
+
+source: https://www.packtpub.com/books/content/creating-camel-project-simple
+
+image:camelContext.jpeg[]
+
+Agreguje : 
+
+** Type converter
+
+[source,java]
+----
+from(...).convertBodyTo(String.class).to(...)
+----
+
+[source,java]
+----
+Document document = message.getBody(Document.class);
+----
+
+** Data format
+
+*** serializacja i deserializacja wiadomości
+
+** Component, endpoints, producers, consumers
+
+*** Component - służy do tworzenia punktów końcowych
+
+*** Fabryka dla punktów końcowych
+
+*** Consumers
+
+
+NOTE : głównie jeden kontekst na aplikację
+
+** Zarządzanie cyklem życia:
+
+*** start
+
+*** stop
+
+*** supend
+
+*** resume
+
+*** dynamicznie dodawanie tras
+
+*** shutdown
+
+DefaultShutdownStrategy
+
+source: camel.apache.org
+
+image:service_lifecycle.png[]
+
+=== Cykl aplikacyjny : 
+
+** stworzenie kontekstu 
+
+** utworzenie i dodanie punktów końcowych oraz zarejestrowanych komponentów
+
+** wystartowanie kontekstu
+
+** zakończenie działania : wyzerowanie wątków i wyczyszczenie zasobów
+
+
+----
+
+----
+
+
+==  DSL
+
+source:https://access.redhat.com/documentation/en-US/Red_Hat_JBoss_Fuse/6.0/html/Implementing_Enterprise_Integration_Patterns/files/FMRS.BJDS.html
+
+image:dsl.gif[]
+
+
+*** Java
+
+*** Groovy
+
+*** Scala
+
+*** Spring XML
+
+*** Blueprint XML (OSGi Blueprint zamiast Spring)
+
+
+== Channels (kanał)
+
+*** zdefiowany przez : **org.apache.camel.Channel** interfejs
+
+*** droga pomiędzy punktem końcowym a procesorem.
+
+*** odpowiedzialny za przekazywanie wiadomości pomiędzy elementami trasy
+
+*** mogą być dekorowane inną funkcją np politką obsługi błędów
+
+*** związany z interceptorem 
+
+**** globalny
+
+**** interceptor na przychodzącą wiadomość
+
+**** interceptor na wychodzącą wiadomość
+
+==  Processors
+
+Służy do przetwarzania, procesowania, tworzenia, modyfikacji komunikatów
+
+[source,java]
+----
+public class MyProcessor implements Processor {
+ public void process(Exchange exchange) {
+    System.out.println("Hello " + exchange.getIn().getBody(String.class));
+  }
+}
+----
+
+.Apache Camel Processors
+[width="100%",frame="topbot",options="header,footer"]
+|======================
+|Java DSL | XML DSL| Opis
+|aggregate()|aggregate | **Aggregator EIP** - złożenie wielu wiadomości w całość
+|aop()     |aop| AOP
+|bean(), beanRef()|bean| **Bean Integration.** - wywołanie metody z ziarna
+|choice()|choice|Content **Based Router EIP** - wybór odpowiedniej trasy poprzez when i otherwise
+|convertBodyTo()|convertBodyTo| Konwersja wiadomości IN
+|delay()|delay|**Delayer EIP** - wprowadzenie opóźnienia
+|doTry()| toTry| Tworzony jest blok **try-catch** w celu przechwycenia wyjątku : poprzez elementy jak  **doCatch**, **doFinally**, czy **end**
+|enrich(),enrichRef()|enrich|**Content Enricher EIP** - wzbogacanie bieżącej wiadomości o jakiś element
+|filter()|filter|Filtrowanie **Message Filter EIP**
+|idempotentConsumer()|idempotentConsumer|**Idempotent Consumer EIP**
+|inOnly()|inOnly|MEP -> InOnly
+|inOut()|inOut|MEP - > InOut
+|loadBalance()|loadBalance|**Load Balancer EIP** - rozpraszamy obciążenie
+|log()|log|Logowanie
+|loop()|loop|**Loop EIP** - dodatkowe iteracje
+|marshal()|marshal|marshal
+|multicast()|multicast|**Multicast EIP** - wysłanie wiadomości na wiele punktów końcowych jednocześnie
+|onCompletion()|onCompletion|Wywoływane kiedy trasa zakończy się powodzeniem
+|onException()|onException|Obsługa sytuacji wyjątkowych
+|pipeline()|pipeline|**Pipes and Filters** 
+|policy()|policy| Polityki
+|pollEnrich(),pollEnrichRef()|pollEnrich|**Content Enricher EIP** bieżąca wiadomość + dane docięgnięte z innych endpointów
+|process(),processRef|process| Processor
+|recipientList()|recipientList|**Recipient List EIP** - wysyła wiadomość do listy odbiorów wybieranych w runtime
+|removeHeader()|removeHeader|Usuwanie nagłówka wiadomości
+|removeHeaders()|removeHeaders|Usuwanie nagłówki wiadomości
+|removeProperty()|removeProperty|Usuwanie właściwości wiadomości
+|resequence()|resequence|**Resequencer EIP** - posortowanie wiadomości w określony sposób do przetwarzania
+|rollback()|rollback| Transakcje
+|routingSlip()|routingSlip|**Routing Slip EIP**
+|setBody()|setBody|Ustawianie ciała wiadomości
+|setExchangePattern()|setExchangePattern|Ustawienie bieżącego MEP
+|setHeader()|setHeader|Ustawienie nagłówków IN
+|setOutHeader()|setOutHeader|Ustawienie nagłówków OUT
+|setProperty()|setProperty|Ustawienie właściwości
+|split()|split|**Splitter EIP** - podzielenie wiadomości na kawałki
+|stop()|stop|Zakończenie przetwarzania bieżącej wiadomości po napotkaniu tego znacznika
+|threads()|threads|Tworzenie puli wątków
+|throttle()|throttle|**Throttler EIP** - dławik
+|throwException()|throwException|Wyrzucenie wyjątku
+|to()|to|Określenie kierunku trasy do endpoint'a 
+|transacted()|transacted|Trasa w zasięgu transakcji
+|transform()|transform|**Message Translator EIP** 
+|unmarshal()|unmarshal| unmarshalling
+|wireTap()|wireTap|**Wire Tap EIP** przekazuje kopie wiadomości do innego endpoint'u 
+|======================
+
+
+== http://camel.apache.org/components.html[Component] 
+
+Biblioteka, która enkapsuluje komunikację, transport i zachowanie za wspólnym interfejsem zdefiniowanym przez Camela.
+
+Camel używa komponentów do produkcji bądź konsumpcji wiadomości.
+
+== Predykaty
+
+** **org.apache.camel.Predicate**
+
+[source,java]
+----
+from("jms:queue:order")
+   .choice()
+      .when(header("type").isEqualTo("widget")).to("bean:widgetOrder")
+      .when(header("type").isEqualTo("wombat")).to("bean:wombatOrder")
+   .otherwise()
+      .to("bean:miscOrder")
+   .end(); 
+----
+
+[source,java]
+----
+Predicate isWidget = header("type").isEqualTo("widget");
+----
+
+[source,java]
+----
+from("jms:queue:order")
+   .choice()
+      .when(isWidget).to("bean:widgetOrder")
+      .when(isWombat).to("bean:wombatOrder")
+   .otherwise()
+      .to("bean:miscOrder")
+   .end();  
+----
+
+=== Negacja
+
+----
+import static org.apache.camel.builder.PredicateBuilder.not
+----
+
+[source,java]
+----
+from("direct:start")
+    .choice()
+        .when(not(header("username").regex("goofy|pluto"))).to("mock:people")
+        .otherwise().to("mock:animals")
+    .end();
+----
+     
+
+=== Łączenie w łańcuch
+
+[source,java]
+----
+PredicateBuilder.and(XPathBuilder.xpath("/bookings/flights"), simple("${property.country = &#39;Spain&#39;}"))
+----
+**    not, and, or
+
+**    isNull, isNotNull
+
+**    isEqualTo, isGreaterThan, isLessThan
+
+**    startsWith, endsWith
+
+**    in ("any of X predicates stands true")
+
+[source,java]
+----
+Predicate user = header("username").isNotNull();
+ 
+// The admin user must be a user AND have a admin header as true
+Predicate admin = and(user, header("admin").isEqualTo("true"));
+ 
+// And God must be an admin and (either have type god or a special message containing Camel Rider)
+Predicate god = and(admin, or(body().contains("Camel Rider"), header("type").isEqualTo("god")));
+ 
+// As you can see with the predicates above we can stack them to build compound predicates
+ 
+from("direct:start").choice()
+  .when(god).to("mock:god")
+  .when(admin).to("mock:admin")
+  .when(user).to("mock:user")
+  .otherwise().to("mock:guest")
+.end();
+----
+
+
+=== Consumer (konsument)
+
+** **Event Driven Consumers**
+
+image:EventDrivenConsumerSolution.gif[]
+ 
+np jms component, cxf component
+
+[source,java]
+----
+from("jms:queue:foo").processRef("processor");
+----
+
+lub XML : 
+
+----
+<route>
+    <from uri="jms:queue:foo"/>
+    <to uri="processor"/>
+</route>
+----
+
+** **Polling Consumers** 
+
+image:PollingConsumerSolution.gif[]
+
+np file component
+
+[source,java]
+----
+Endpoint endpoint = context.getEndpoint("activemq:my.queue");
+PollingConsumer consumer = endpoint.createPollingConsumer();
+Exchange exchange = consumer.receive();
+----
+
+
+** **ConsumerTemplate** / JmsTempate, JdbcTemplate ze Springa
+
+[source,java]
+----
+Exchange exchange = consumerTemplate.receive("activemq:my.queue");
+
+Object body = consumerTemplate.receiveBody("activemq:my.queue");
+
+String body = consumerTemplate.receiveBody("activemq:my.queue", String.class);
+
+ConsumerTemplate consumer = context.createConsumerTemplate();
+
+----
+
+lub Xml :
+ 
+----
+<camelContext xmlns="http://camel.apache.org/schema/spring">
+    <!-- define a producer template -->
+    <template id="producer"/>
+    <!-- define a consumer template -->
+    <consumerTemplate id="consumer"/>
+     
+    <route>
+        <from uri="seda:foo"/>
+        <to id="result" uri="mock:result"/>
+    </route>
+</camelContext>
+----
+
+
+[source,java]
+----
+@ContextConfiguration
+public class SpringConsumerTemplateTest extends SpringRunWithTestSupport {
+ 
+    @Autowired
+    private ProducerTemplate producer;
+ 
+    @Autowired
+    private ConsumerTemplate consumer;
+ 
+    @EndpointInject(ref = "result")
+    private MockEndpoint mock;
+ 
+    @Test
+    public void testConsumeTemplate() throws Exception {
+        // we expect Hello World received in our mock endpoint
+        mock.expectedBodiesReceived("Hello World");
+ 
+        // we use the producer template to send a message to the seda:start endpoint
+        producer.sendBody("seda:start", "Hello World");
+ 
+        // we consume the body from seda:start
+        String body = consumer.receiveBody("seda:start", String.class);
+        assertEquals("Hello World", body);
+ 
+        // and then we send the body again to seda:foo so it will be routed to the mock
+        // endpoint so our unit test can complete
+        producer.sendBody("seda:foo", body);
+ 
+        // assert mock received the body
+        mock.assertIsSatisfied();
+    }
+ 
+}
+----
+
+** @Consume
+
+[source,java]
+----
+public class ConsumeMdb {
+@Consume(uri="activemq:queue:sayhello")
+  public String onMyMessage(String message) {
+  return "Hello " + message;
+}
+}
+----
+
+NOTE: Jeśli metoda zwraca **void**  jest to jednoznaczne z wykorzystaniem strategii **InOnly**
+
+NOTE: Jeśli metoda zwraca wynik  jest to jednoznaczne z wykorzystaniem strategii **InOut** i tworzona będzie nowa wiadomośćb
+
+
+=== Analogia
+
+[source,java]
+----
+public class MyBean {
+@Consume(uri="someEndpoint")
+public String myMethod(String message) {
+//...
+}
+}
+----
+
+to jest w prostej linii jednoznaczne z : 
+
+----
+from("someEndpoint").bean(MyBean.class, "myMethod");
+----
+
+
+
+== ProducerTemplate
+
+[source,java]
+----
+
+ProducerTemplate producerTemplate = camelContext.createProducerTemplate();
+template.sendBody("direct:logger", "<hello>world!</hello>");
+
+ProducerTemplate template = exchange.getContext().createProducerTemplate();
+ 
+// send to default endpoint
+template.sendBody("<hello>world!</hello>");
+ 
+// send to a specific queue
+template.sendBody("activemq:MyQueue", "<hello>world!</hello>");
+ 
+// send with a body and header 
+template.sendBodyAndHeader("activemq:MyQueue", "<hello>world!</hello>","CustomerRating", "Gold");
+
+----
+
+[source,java]
+----
+public class ProduceInvoice {
+@Produce
+private ProducerTemplate template;
+public String payInvoice(String name) {
+return template.requestBody("activemq:queue:invoices",name, String.class);
+}
+}
+----
+
+Od wersji 2.18
+
+[source,java]
+----
+  Integer result = FluentProducerTemplate.on(context)
+    .withHeader("key-1", "value-1")
+    .withHeader("key-2", "value-2")
+    .withBody("Hello")
+    .to("direct:inout")
+    .request(Integer.class)
+    
+    
+//Use a processor
+Integer result = FluentProducerTemplate.on(context)
+    .withProcessor(exchange -> exchange.getIn().setBody("Hello World"))
+    .to("direct:exception")
+    .request(Integer.class);
+    
+    
+//Customize template
+Object result = FluentProducerTemplate.on(context)
+    .withTemplateCustomizer(
+        template -> {
+            template.setExecutorService(myExecutor);
+            template.setMaximumCacheSize(10);
+        }
+    )
+    .withBody("the body")
+    .to("direct:start")
+    .request()
+----
+   
+** **send**
+
+ **fire and forget** -> **InOnly** -> nie dbamy o wynik
+ 
+** **request** 
+
+**request-reply** ->  **InOut** ->  wzracamy wynik    
+
+** @Produce
+
+[source,java]
+----
+public class ProducePojo {
+@Produce
+private ProducerTemplate template;
+public String sayHello(String name) {
+  return template.requestBody("activemq:queue:sayhello",name, String.class);
+}
+}
+----
+
+
+
+== Endpoint
+
+** **org.apache.camel.Endpoint**
+
+Może być potraktowany jako identyfikator źródła zasobów czy będzie to JMS, czy File jest to obojętne.
+ 
+Słowo kluczowe "from" - oznacza czytaj z , a słowo "to" - zapis , wyślij do.
+
+
+Przykłady punktów końcowych dostępnych w Apache Camel: 
+
+** Bean
+
+** Browse
+
+** Dataset
+
+** Direct
+
+** File
+
+** Log
+
+** Mock
+
+** Properties
+
+** Ref
+
+** SEDA
+
+** Timer
+
+** VM
+
+----
+pop3://host:port?password=foo
+
+file://inbox?sorter=#mySpecialFileSorter
+
+.to("ftp:joe@myftpserver.com?password=RAW(se+re?t&23)&binary=true"
+
+----
+
+=== Użycie placeholdera
+
+----
+<camelContext ...>
+   <propertyPlaceholder id="properties" location="myftp.properties"/>
+   ...
+</camelContext>
+
+.to("ftp:joe@myftpserver.com?password={{myFtpPassword}}&binary=true"
+----
+
+
+
+
+== Polityka tras
+
+
+** **org.apache.camel.spi.RoutePolicy**
+
+[source,java]
+----
+RoutePolicy myPolicy = new MyRoutePolicy();
+from("seda:foo").routePolicy(myPolicy).to("mock:result");
+----
+
+Spring XML : 
+
+----
+<bean id="myPolicy" class="com.mycompany.MyRoutePolicy"/>
+ 
+<route routePolicyRef="myPolicy">
+    <from uri="seda:foo"/>
+    <to uri="mock:result"/>
+</route>
+----
+
+----
+context.addRoutePolicyFactory(new MyRoutePolicyFactory());
+----
+
+----
+<bean id="myRoutePolicyFactory" class="com.foo.MyRoutePolicyFactory"/>
+
+// + override method on bean
+
+RoutePolicy createRoutePolicy(CamelContext camelContext, String routeId, RouteDefinition route);
+----
+
+=== Dostarczone 
+
+** http://camel.apache.org/routepolicy.html[ThrottlingInflightRoutePolicy]
+
+** http://camel.apache.org/scheduledroutepolicy.html[ScheduledRoutePolicy]
+
+*** http://camel.apache.org/simplescheduledroutepolicy.html[SimpleScheduledRoutePolicy – Simple Quartz Trigger]
+ 
+*** http://camel.apache.org/cronscheduledroutepolicy.html[CronScheduledRoutePolicy –  Cron based Quartz Trigger]
+
+
+
+== Konwersja typów
+
+[source,java]
+----
+from(...).convertBodyTo(String.class).to(...)
+Document document = message.getBody(Document.class);
+----
+
+== Transformacja wiadomości
+
+np konwersja XML do JSON
+
+
+** http://camel.apache.org/jaxb.html[JAXB]
+
+** http://camel.apache.org/json.html[Json]
+
+** http://camel.apache.org/xmljson.html[Xml/Json]
+
+** http://camel.apache.org/bindy.html[Bindy]
+
+** http://camel.apache.org/csv.html[Csv] 
+
+
+=== Transformacja za pomocą expression language
+
+----
+</transform>
+  <simple>New message ${body}</simple>
+</transform>
+----
+
+[source,java]
+----
+from("direct:start").transform(body().append(" Transformed!")).to("mock:result");
+----
+
+=== Transformacja za pomocą wywołania metody
+
+[source,java]
+----
+.to("bean:myConverter?method=convert(${body}, ${header.userId})")
+----
+
+=== Transformacja za pomocą procesora
+
+[source,java]
+----
+from("direct:start").process(new Processor() {
+public void process(Exchange exchange) {
+ Message in = exchange.getIn();
+ in.setBody(in.getBody(String.class) + " Processed!");
+}
+}).to("mock:result
+----
+
+=== Transformacja za pomocą EIP
+
+[source,java]
+----
+from("direct:start").transform(body().append(" World!")).to("mock:result");
+----
+
+
+
+== Autowyszukiwanie : 
+
+Można zdać się na mechanizm auto wyszukiwania :
+
+ -  META-INF/services/org/apache/camel/component
+
+Ta praktyka jest bardzo popularna. Camel potrafi sobie zarejestrować komponent w runtime poprzez umieszczenie klasy komponentu w classpath oraz wskazanie komponentu tak jak to na obrazku poniżej.
+Trzeba pamiętać iż nazwa pliku definiującego komponent musi mieć taką samą nazwę jak sam komponent. Możecie sobie prześledzić takie zachowanie w przypadku wszystkich dostępnych komponentów. W ten sposób również należy tworzyć swoje własne custom'owe komponenty - i to jest bardzo wygodne.
+
+
+
+
+
+Różne interfejsy komunikacji 
+
+** email
+
+** ftp 
+
+** REST
+
+** SOAP
+
+** MQ
+
+** JMS
+
+** File
+
+** etc
+
+Format zapisu : 
+
+
+** binarnie
+
+** XML
+
+** JSON
+
+** CSV
+
+** etc
+
+== Rejestr
+
+** **org.apache.camel.spi.Registry**
+
+** dostępny z kontekstu
+
+** odnajdowanie instancji komponentu zarejestrowanego w konteksie
+
+=== SimpleRegistry
+
+[source,java]
+----
+SimpleRegistry registry = new SimpleRegistry();
+registry.put("myTransformer", new MyTransformer());
+CamelContext context = new DefaultCamelContext(registry);
+----
+
+lub 
+
+[source,java]
+----
+context.addComponent("myTransformer", new MyTransformer());
+----
+
+=== JndiRegistry
+
+=== ApplicationContextRegistry
+
+Spring
+
+=== Własny
+
+    
+
+== Problem dostępności systemu 
+
+=== Okna czasowe
+
+=== Przerwy konserwacyjne
+
+== Adnotacje
+
+
+=== @Body
+
+[source,java]
+----
+public String hello(@Body String body,@Header("foo") String foo,@Headers Map<String,Object> headers){
+  String s=body.replaceFirst("Hello","Bye");
+  if (!foo.equals("ABC")) {
+    throw new IllegalArgumentException("Foo has not expected value ABC but " + foo);
+  }
+  headers.put("foo",123);
+  return s;
+}
+ 
+----
+
+=== @ExchangeException
+
+=== @Header
+
+=== @Headers
+
+[source,java]
+----
+public Object handleOrder(@Headers Map<?,?> in,@Body String payload,@OutHeaders Map<String,Object> out) throws OrderFailedException {
+  out.put("customerid",in.get("customerid"));
+  if ("Order: tv".equals(payload)) {
+    throw new OrderFailedException("Cannot order: tv");
+  }
+ else {
+    out.put("orderId","444");
+    return "Order OK";
+  }
+}
+ 
+----
+
+=== @OutHeaders
+
+=== @Property
+
+=== @Properties
+
+=== @Handler
+
+=== @Consume
+
+
+[source,java]
+----
+public class Foo {
+    @Consume(uri = "activemq:my.queue")
+    public void doSomething(@Header("JMSCorrelationID") String correlationID, @Body String body) {
+        // process the inbound message here
+    }
+}
+----
+
+=== @Bean
+
+[source,java]
+----
+public class Foo {
+    @MessageDriven(uri = "activemq:my.queue")
+    public void doSomething(@Bean("myCorrelationIdGenerator") String correlationID, @Body String body) {
+        // process the inbound message here
+    }
+}
+----
+
+== Expression language annotations
+
+
+.Expression language annotations
+[width="100%",frame="topbot",options="header,footer"]
+|======================
+|Adnotacja| Opis
+|@Bean|   Injects a Bean expression.
+|@Constant|   Injects a Constant expression
+|@EL|     Injects an EL expression.
+|@Groovy|     Injects a Groovy expression.
+|@Header|     Injects a Header expression.
+|@JavaScript|     Injects a JavaScript expression.
+|@OGNL|   Injects an OGNL expression.
+|@PHP|    Injects a PHP expression.
+|@Python|     Injects a Python expression.
+|@Ruby|   Injects a Ruby expression.
+|@Simple|     Injects a Simple expression.
+|@XPath|  Injects an XPath expression.
+|@XQuery|     Injects an XQuery expression.
+|======================
+
+[source,java]
+----
+public class MyBeanProcessor {
+    public void checkCredentials(
+        @XPath("/credentials/username/text()") String user,
+        @XPath("/credentials/password/text()") String pass
+    ) {
+        // Check the user/pass credentials...
+        ...
+    }
+}
+----
+
+[source,java]
+----
+// Java
+protected class BeanIntfImpl implements BeanIntf {
+    void processBodyAndHeader(String body, String title) {
+        ...
+    }
+}
+----
+
+[source,java]
+----
+from("file:data/inbound")
+  .bean(BeanIntfImpl.class, "processBodyAndHeader(${body}, ${header.title})")
+  .to("file:data/outbound");
+----
+
+  
+
+== PlaceHolder
+
+
+[source,xml]
+----
+<camelContext xmlns="http://camel.apache.org/schema/spring">
+   <propertyPlaceholder id="properties"  location="classpath:placeholder.properties"/>
+   <!-- other code here -->
+</camelContext>
+
+<camel:propertyPlaceholder id="integrationProperties" location="file:${user.home}/.mw/conf/properties/mw.properties" />
+----
+
+lub 
+
+----
+<propertyPlaceholder id="properties" location="file:./conf/integrationEsbConfig.properties"  prefixToken="{{" suffixToken="}}" />
+<!-- Thread pool for Parallel Operations. Split Configurations -->
+<threadPoolProfile id="myDefaultProfile" defaultProfile="true" poolSize="{{thread.poolsize}}"
+maxPoolSize="{{thread.maxpoolsize}}" maxQueueSize="{{thread.maxqueuesize}}" rejectedPolicy="CallerRuns" />
+----
+lub 
+
+[source,java]
+----
+CamelContext context = new DefaultCamelContext();
+PropertiesComponent prop = camelContext.getComponent("properties", PropertiesComponent.class);
+prop.setLocation("classpath:my.properties");
+----
+
+
+
+W postaci Spring XML : 
+
+
+----
+<bean id="properties"
+class="org.apache.camel.component.properties.PropertiesComponent">
+ <property name="location" value="classpath:my.properties"/>
+</bean>
+----
+
+lub java
+
+[source,java]
+----
+PropertiesComponent properties = new PropertiesComponent();
+properties.setLocation("classpath:placeholder.properties");
+camelContext.addComponent(properties);
+----
+
+[source,xml]
+----
+<route>
+   <from uri="{{start.endpoint}}"/>
+      <transform>
+           <simple>{{transform.message}}: ${body}</simple>
+       </transform>
+    <to uri="{{end.endpoint}}"/>
+</route>
+----
+
+lub java:
+
+[source,java]
+----
+from("{{start.endpoint}}").transform().simple("{{transform.message}}: ${body}").log("Set message to ${body}").to("{{end.endpoint}}");
+----
+
+Plik properties
+
+----
+start.endpoint=direct:in
+transform.message=I hear you
+end.endpoint=mock:out
+----
+
+
+
+
+== Bean
+
+Działa podobnie do procesora, bezpośrednio umieszczne jest w trasie.
+
+NOTE: Nie zależy od Camel API w przeciwieństwie do Processor'a.
+
+[source,java]
+----
+public boolean isValidRequest(@Header("userId") String userId,@Body String body, Exchange exchange)
+
+filter().method("myFilterBean", "isValidRequest(@Header("userId"),${body}, null)")
+
+----
+
+
+== Predicate
+
+[source,java]
+----
+public class MyPredicate {
+    public boolean isAccept(String body) {
+        return ((body != null) && body.contains("Honda"));
+    }
+}
+----
+
+----
+<filter>
+        <method ref="myPredicate" method="isAccept"/>
+        <to uri="mock:dest"/>
+      </filter>
+----
+
+Java:
+
+[source,java]
+----
+public class MyPredicateRouteBuilder extends RouteBuilder {
+@Override
+public void configure() throws Exception {
+MyPredicate predicate = new MyPredicate();
+from("direct:start").filter().method(predicate, "isAccept").to("mock:end");
+}
+}
+}
+----
+
+== Marshaling
+
+
+----
+<camelContext id="camel" xmlns="http://camel.apache.org/schema/spring">
+  <dataFormats>
+    <jaxb id="myJaxb" prettyPrint="true" contextPath="org.apache.camel.example"/>
+  </dataFormats>
+ 
+  <route>
+    <from uri="direct:start"/>
+    <marshal ref="myJaxb"/>
+    <to uri="direct:marshalled"/>
+  </route>
+  <route>
+    <from uri="direct:marshalled"/>
+    <unmarshal ref="myJaxb"/>
+    <to uri="mock:result"/>
+  </route>
+ 
+</camelContext>
+----
+
+=== Reużywalność 
+
+----
+<bean id="myJaxb" class="org.apache.camel.model.dataformat.JaxbDataFormat">
+  <property name="prettyPrint" value="true"/>
+  <property name="contextPath" value="org.apache.camel.example"/>
+</bean>
+----
+  
+[source,java]
+----
+from("file://foo/bar").unmarshal().serialization(). marshal("jaxb").to("activemq:Some.Queue");
+----
+
+[source,java]
+----
+from("file://data/inbox?noop=true&maxMessagesPerPoll=1&delay=5000")
+  .split(body().tokenize("\n")).streaming()
+   .unmarshal().bindy(BindyType.Csv, "pl.java.scalatech.cvs")           
+   .to("jms:rawTraffic");
+----
+
+
+
+
+=== Własny mashaller
+
+TODO
+
+
+=== Własny konwerter
+
+
+TODO
+
+== Logowanie zdarzeń
+
+----
+<route>
+<from uri="timer:fire?period=5000"/>
+<setBody><constant>Hello world</constant></setBody>
+<to uri="log:component"/>
+ <log message="Hey, you said ${body} !"
+ loggingLevel="WARN" logName="EIP"/>
+</route>
+----
+
+== Main class
+
+
+[source,java]
+----
+public class CamelRunner{
+     public static void main(String args[]) throws Exception {
+         Main camelMain = new Main();
+         camelMain.enableHangupSupport(); //ctrl-c shutdown
+         camelMain.addRouteBuilder(new RouteBuilder() {
+                public void configure() {
+from("ftp://host/folder?username=camel&password=apache&fileName=file.xml&delay=360000" )
+.to("file:data/   outbox");
+          }
+    });
+        camelMain.run(); //Camel will keep running indefinitely
+     }
+}
+----
+
+
+== Recipient List (Top ten)
+
+=== Static
+
+[source,java]
+----
+from("jms:queue:inbox").multicast().to("file://backup", "seda:inbox");
+----
+
+Spring XML :
+
+----
+<route>
+        <from uri="jms:queue:inbox" />
+        <multicast>
+                <to uri="file://backup"/>
+                <to uri="seda:inbox"/>
+        </multicast>
+</route>
+----
+
+NOTE: Multicast
+
+=== Dynamic
+
+----
+from("seda:confirmMails").beanRef(processMails).recipientList("destinations");
+----
+
+[source,java]
+----
+public void confirm(@Headers Map headers, @Body String body} {
+        String[] recipients = ...
+        headers.put(""destinations", recipients);
+}
+----
+
+Spring XML : 
+
+----
+<route>
+        <from uri="jms:queue:inbox" />
+        <recipientList>
+                <method bean="myDynamicRouter" method="route"/>
+        </recipientList>
+</route>
+
+<bean id="myDynamicRouter" class="com.mycompany.MyDynamicRouter"/>
+
+public class myDynamicRouter {
+        public String[] route(String body) {
+                return new String[] { "file://backup", .... }
+        }
+}
+----
+
+** Adnotacja
+
+[source,java]
+----
+public class CustomerService {
+        @RecipientList
+        public String whereTo(@Header("customerId") id) {
+                return "jms:queue:customer:" + id;
+        }
+}
+----
+
+----
+from("jms:queue:inbox").bean(CustomerService.class, "whereTo");
+----
+
+
+== Szablony
+
+** FreeMarker
+
+** StringTemplate
+
+** Velocity
+
+----
+from("activemq:My.Queue").
+  to("velocity:com/acme/MyResponse.vm");
+----
+
+
+** XSL
+
+** etc
+
+----
+from("activemq:My.Queue").
+  to("velocity:file://myfolder/MyResponse.vm?contentCache=true").
+  to("activemq:Another.Queue");
+----
+
+== Camel & Java
+
+=== Main
+
+[source,java]
+----
+ public static void main(String... args) throws Exception {
+        Main main = new Main();
+        main.enableHangupSupport();
+        main.addRouteBuilder(new MyRouteBuilder());
+        main.run(args);
+}
+----
+
+[source,java]
+----
+public class TimerEventRouteBuilder extends RouteBuilder {
+@Override
+public void configure() throws Exception {
+from("timer:myTimer?period=2s").log("Invoked:  ${property.CamelTimerName}"
++ " at ${header.CamelTimerFiredTime}");
+}
+};
+
+CamelContext context = new DefaultCamelContext();
+
+context.addRoutes(new TimerEventRouteBuilder());
+
+context.start()
+----
+
+== Spring & Camel
+
+** integracja przez kod java lub Spring XML
+
+----
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="
+          http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+          http://camel.apache.org/schema/spring http://camel.apache.org/schema/spring/camel-spring.xsd">
+----
+ 
+
+** używa transakcji Springa
+
+** pozwala na konfiguracje wspólną xml  
+
+** dostarcza XML schema
+
+** wspiera Spring Remoting 
+
+** integracja Bean Springa a kontekstem Camela
+
+** integracja Type Converter dla Spring Resource
+
+** integracja testów
+
+----
+<bean id="myTimerEvent" class="pl..MyTimerRouteBuilder"/>
+
+<camelContext xmlns="http://camel.apache.org/schema/spring">
+  <routeBuilder ref="myTimerEvent"/>
+</camelContext>
+----
+
+
+Automatyczny start SpringCamelContext: 
+
+----
+<beans xmlns="http://www.springframework.org/schema/beans"
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+xsi:schemaLocation="
+http://www.springframework.org/schema/beans
+http://www.springframework.org/schema/beans/spring-beans.xsd
+http://camel.apache.org/schema/spring
+http://camel.apache.org/schema/spring/camel-spring.xsd">
+...
+<camelContext xmlns="http://camel.apache.org/schema/spring"/>
+</beans>
+----
+
+=== Znajdowanie RouteBuilder
+
+----
+<camelContext xmlns="http://camel.apache.org/schema/spring">
+   <routeBuilder ref="myRoute"/>
+</camelContext>
+----
+
+[source,java]
+----
+public class MyRoute extends RouteBuilder {
+public void configure() {
+from("direct:start").process(..).to("jms:desc");
+}
+}
+----
+
+
+=== ComponentScan && @Component / Automatycznie
+
+Dla klas oznaczonych adnotacją **@Component**
+
+----
+<camelContext xmlns="http://camel.apache.org/schema/spring">
+<packageScan>
+<package>pl.java.scalatech.bean</package>
+</packageScan>
+</camelContext>
+----
+
+----
+<camelContext xmlns="http://camel.apache.org/schema/spring">
+<component-scan/>
+</camelContext>
+----
+
+=== Konfigurowanie punktów końcowych i kompomentów
+
+----
+<camelContext id="camel" xmlns="http://camel.apache.org/schema/spring">
+    <jmxAgent id="agent" disabled="true"/>
+</camelContext>
+ 
+<bean id="activemq" class="org.apache.activemq.camel.component.ActiveMQComponent">
+  <property name="connectionFactory">
+    <bean class="org.apache.activemq.ActiveMQConnectionFactory">
+      <property name="brokerURL" value="vm://localhost?broker.persistent=false&amp;broker.useJmx=false"/>
+    </bean>
+  </property>
+</bean>
+----
+
+
+Przykład : EIP : ImpotentConsumer z Spring Cache
+
+----
+<bean id="repo" class="org.apache.camel.spring.processor.idempotent.SpringCacheIdempotentRepository">
+    <constructor-arg>
+       <bean class="org.springframework.cache.guava.GuavaCacheManager"/>
+    </constructor-arg>
+    <constructor-arg value="idempotent"/>
+</bean>
+ 
+<camelContext xmlns="http://camel.apache.org/schema/spring">
+    <route id="idempotent-cache">
+        <from uri="direct:start" />
+        <idempotentConsumer messageIdRepositoryRef="repo" skipDuplicate="true">
+            <header>MessageId</header>
+            <to uri="log:org.apache.camel.spring.processor.idempotent?level=INFO&amp;showAll=true&amp;multiline=true" />
+            <to uri="mock:result"/>
+        </idempotentConsumer>
+    </route>
+</camelContext>
+----
+
+=== Dołączanie tras 
+
+----
+<camelContext xmlns="http://camel.apache.org/schema/spring">
+<routeBuilder ref="myPrivateRoute"/>
+</camelContext>
+
+//where myPrivateRoute extends RouteBuilder
+----
+
+== Camel && Spring Boot
+
+** Automatyczne podnoszenie kontekstu Camel'a
+
+** Autoonfiguracja CamelContext
+
+----
+ @Autowired
+  CamelContext camelContext;
+----
+
+** Autodetekcja tras 
+
+[source,java]
+----
+@Component
+public class MyRouter extends RouteBuilder {
+ 
+  @Override
+  public void configure() throws Exception {
+    from("jms:invoices").to("file:/invoices");
+  }
+ 
+}
+----
+
+*** @Component
+
+*** RouteBuilder
+
+** Properties
+
+----
+route.from = jms:invoices
+----
+
+[source,java]
+----
+@Component
+public class MyRouter extends RouteBuilder {
+ 
+  @Override
+  public void configure() throws Exception {
+    from("{{route.from}}").to("{{route.to}}");
+  }
+ 
+}
+----
+
+** Dostrajanie kontekstu Camel'a
+
+----
+ @Bean
+  CamelContextConfiguration contextConfiguration() {
+    return new CamelContextConfiguration() {
+      @Override
+      void beforeStart(CamelContext context) {
+          //...
+      }
+    };
+  }
+----
+
+** Autokonfiguracja ProducerTemplate i CustomerTemplate
+
+[source,java]
+----
+@Component
+public class InvoiceProcessor {
+ 
+  @Autowired
+  private ProducerTemplate producerTemplate;
+ 
+  @Autowired
+  private ConsumerTemplate consumerTemplate;
+  public void processNextInvoice() {
+    Invoice invoice = consumerTemplate.receiveBody("jms:invoices", Invoice.class);
+    ...
+    producerTemplate.sendBody("netty-http:http://invoicing.com/received/" + invoice.id());
+  }
+ 
+}
+----
+
+
+Zależność: 
+
+----
+compile('org.apache.camel:camel-spring-boot-starter:2.17.3')
+----
+
+Ustawienia : 
+
+Prefix : **camel.**
+
+Przykład wyłączanie JMX : 
+
+----
+camel.springboot.jmxEnabled = false
+----
+
+=== Xml Route
+
+
+Xml umieszczamy w katalogu **camel** na classpath.
+
+
+include::components.adoc[]
+
+include::monitoring.adoc[]
+
+include::performance.adoc[]
+
+include:errorhandling.adoc[]
+
+include:ws.adoc[]
+
+include::testing.adoc[]
+
+
+
+
