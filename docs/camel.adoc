@@ -529,6 +529,8 @@ Biblioteka, która enkapsuluje komunikację, transport i zachowanie za wspólnym
 
 Camel używa komponentów do produkcji bądź konsumpcji wiadomości.
 
+NOTE:Aktualizacja : https://github.com/apache/camel/tree/master/components[components]
+
 == Predykaty
 
 ** **org.apache.camel.Predicate**
