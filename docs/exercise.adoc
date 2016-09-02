@@ -1,0 +1,180 @@
+
+
+Stwórz prosty serwis Camela.
+
+TIP: Main
+
+----
+  Main main = new Main();
+  main.enableHangupSupport();
+  main.addRouteBuilder(new MyRouteBuilder());
+  main.run(args);   
+----
+
+----
+ 
+CamelContext camelContext = new DefaultCamelContext();
+camelContext.addRoutes(....);
+camelContext.setTracing(true);
+camelContext.start();
+Thread.sleep(10000);
+camelContext.stop();
+
+----
+
+
+
+----
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="
+       http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+       http://camel.apache.org/schema/spring http://camel.apache.org/schema/spring/camel-spring.xsd">
+
+    <camelContext xmlns="http://camel.apache.org/schema/spring">
+        <route>
+            <from uri="file://source"/>
+            <to uri="log://org.apache.camel?showAll=true&amp;multiline=true"/>
+            <to uri="file://target"/>
+        </route>
+    </camelContext>
+
+</beans>
+----
+
+Stwórz serwis Camel wraz z integracją z Spring Boot
+
+TIP: RouteBuilder
+
+----
+CamelSpringBootApplicationController
+----
+
+TIP: katalog routes
+
+----
+<?xml version="1.0" encoding="UTF-8"?>
+<routes xmlns="http://camel.apache.org/schema/spring">
+    <route id="test-route">
+        <from uri="timer://myTimer?period={{timer.period}}&amp;delay=1000&amp;repeatCount=5" />
+        <process ref="...." />
+        <bean ref="..." method="...." />
+        <to uri="log:timer?level=INFO&amp;showHeaders=true" />
+    </route>
+</routes>
+----
+
+
+Stwórz prosty timer i wyrzuć tekst na konsole, do pliku i do logów.
+
+Stwórz prosty procesor
+
+Stwórz prosty bean i wykorzystaj go w trasie
+
+TIP : wykorzystaj #Direct
+
+
+TIP: wykorzystaj #SEDA
+
+
+
+----
+<?xml version="1.0" encoding="UTF-8"?>
+<person user="james">
+  <firstName>James</firstName>
+  <lastName>Strachan</lastName>
+  <city>London</city>
+</person>
+----
+
+----
+<?xml version="1.0" encoding="UTF-8"?>
+<person user="ibsen">
+  <firstName>Claus</firstName>
+  <lastName>Ibsen</lastName>
+  <city>new york</city>
+</person>
+----
+
+Stwórz implementacje CBR
+
+TIP: xpath("/person/city = 'London'")
+
+Ukryć
+
+----
+
+from("file:src/data?noop=true")
+            .choice()
+                .when(xpath("/person/city = 'London'"))
+                    .log("UK message")
+                    .to("file:target/messages/uk")
+                .otherwise()
+                    .log("Other message")
+                    .to("file:target/messages/others");
+}
+----
+
+
+Usuń niechciane wiadomości
+
+TIP : #Filter
+
+----
+   from("direct:start").filter(header("status").isEqualTo("valid")).to("mock:valid").end()
+----
+
+Użyj resequencer do posortowania wiadomości 
+
+----
+  from("direct:start")
+                .resequence(header("index"))
+                .batch().size(100).timeout(1000L)
+                .to("mock:result");
+}
+----
+
+Przetransformuj xml na json
+
+
+----
+ XmlJsonDataFormat
+----
+
+==Wykonaj transformacje : 
+
+===Json
+
+----
+unmarshal(new JacksonDataFormat(User.class))
+----
+
+=== XML JAXB
+
+----
+final DataFormat jaxb = new JaxbDataFormat(JAXBContext.newInstance(User.class));
+----
+
+
+=== Xml Xstream
+
+
+=== JSON -> XML
+
+=== XML -> JSON
+
+
+
+Wykorzystaj #Consumer
+
+
+Wykorzystaj #Producer
+
+Użyj #loadBalancer
+
+Użyj #Throttle
+
+Użyj #Splitter
+
+Użyj #Aggregator
+
