@@ -25,6 +25,29 @@ ifndef::imgsdir[:imgsdir: ./../images]
 
 image:{image-link} [role='img-circle']
 
+
+== Moje źródła wiedzy 
+
+* http://www.enterpriseintegrationpatterns.com/ [EIP]
+
+* http://camel.apache.org/[apache camel]
+
+* **Moje książki :** 
+
+** Camel in Action 
+
+** Camel in Action Second Edition (MEP)
+
+** Instant Apache Camel Message Routing
+
+** Apache Camel Developer's CookBook 
+
+** Mastering Apache Camel
+
+** Spring Integration Essentials
+
+
+
 == Apache Camel to:
 
 source :swissknifeshop.co.uk

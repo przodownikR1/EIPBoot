@@ -42,6 +42,30 @@ camelContext.stop();
 </beans>
 ----
 
+
+Przykład 2 
+
+----
+
+<dependency>
+<groupId>org.apache.camel</groupId>
+<artifactId>camel-core</artifactId>
+<version>${camel-version}</version>
+</dependency>
+
+
+public class Main {
+public static void main(String[] args) throws Exception
+{
+CamelContext camelContext = new DefaultCamelContext();
+camelContext.addRoutes(new MyFileRoute());
+camelContext.start();
+Thread.sleep(10000);
+camelContext.stop();
+}
+}
+----
+
 Stwórz serwis Camel wraz z integracją z Spring Boot
 
 TIP: RouteBuilder
@@ -67,9 +91,28 @@ TIP: katalog routes
 
 Stwórz prosty timer i wyrzuć tekst na konsole, do pliku i do logów.
 
+----
+<route>
+<from uri="timer://start?fixedRate=true&amp;period=1000"/>
+<to uri="log://org.apache.camel.generator?level=INFO"/>
+<to uri="direct:logger"/>
+</route>
+----
+
+
+
 Stwórz prosty procesor
 
 Stwórz prosty bean i wykorzystaj go w trasie
+
+
+----
+from(...).bean(MyService.class, "doSomething(${body},${header.userId})")
+----
+
+----
+from(...).to("bean:myService?method=doSomething(${body.asXml},${header.userId})")
+----
 
 TIP : wykorzystaj #Direct
 
@@ -116,6 +159,15 @@ from("file:src/data?noop=true")
 ----
 
 
+Przykład 2 : 
+
+----
+from("file://source").choice()
+.when(simple("${in.header.CamelFileName} contains 'my.txt'")).to("file://my")
+.when(simple("${in.header.CamelFileName} contains 'your.txt'")).to("file://your")
+.otherwise().to("log://org.apache.camel.howto?showAll=true");
+----
+
 Usuń niechciane wiadomości
 
 TIP : #Filter
@@ -124,6 +176,22 @@ TIP : #Filter
    from("direct:start").filter(header("status").isEqualTo("valid")).to("mock:valid").end()
 ----
 
+
+Użyj filter (Bean Binding)
+
+----
+filter().method("myFilterBean", "isValid")
+----
+
+----
+public boolean isValid(@Header("myId") String userId, @Body String body, Exchange exchange)
+----
+
+lub 
+
+----
+filter().method("myFilterBean", "isValid(@Header("userId"),${body}, null)")
+----
 Użyj resequencer do posortowania wiadomości 
 
 ----
@@ -141,7 +209,49 @@ Przetransformuj xml na json
  XmlJsonDataFormat
 ----
 
+----
+<dataFormats>
+<xmljson id="xmljsonWithOptions" forceTopLevelObject="true" trimSpaces="true" skipNamespaces="true"
+removeNamespacePrefixes="true"/>
+</>
+----
+
+----
+<route>
+<from uri="direct:start"/>
+ <marshal ref="xmljsonWithOptions"/>
+<to uri="direct:result"/>
+</route>
+----
+
 ==Wykonaj transformacje : 
+
+
+* **EL**
+
+----
+</transform>
+<simple>New message ${body}</simple>
+</transform>
+----
+
+* **JAVA**
+
+----
+.to("bean:myConverter?method=convert(${body}, ${header.userId})")
+----
+
+* **PROCESSOR**
+
+----
+from("...")
+.process(new Processor() {
+ public void process(Exchange exchange) throws Exception {
+   exchange.getIn().setBody("Changed body");
+ }
+})
+.to("...");
+----
 
 ===Json
 
@@ -164,17 +274,72 @@ final DataFormat jaxb = new JaxbDataFormat(JAXBContext.newInstance(User.class));
 === XML -> JSON
 
 
+=== Type conversion
+
+----
+from(...).convertBodyTo(String.class).to(...)
+----
+
 
 Wykorzystaj #Consumer
 
+----
+ConsumerTemplate consumerTemplate = camelContext().createConsumerTemplate();
+String result = consumerTemplate.receiveBody("activemq:my.queue",String.class);
+----
+
 
 Wykorzystaj #Producer
+
+----
+ProducerTemplate producerTemplate = camelContext.createProducerTemplate();
+template.sendBody("direct:my", "<hello>world!</hello>");
+----
+
+Użyj #multicast
+
+----
+from("direct:start")
+.multicast()
+.parallelProcessing().stopOnException(false)
+.to("direct:a", "direct:b", "direct:c")
+.end()
+.to("direct:result");
+----
+
+
+Użyj #idempotentConsumer
 
 Użyj #loadBalancer
 
 Użyj #Throttle
 
+----
+<route>
+<from uri="seda:a"/>
+<throttle maximumRequestsPerPeriod="10" timePeriodMillis="10000">
+<to uri="direct:next"/>
+</throttle>
+</route>
+----
+
 Użyj #Splitter
+
+
+** XPATH
+
+----
+<invoice>
+<item><product name="tv" quantity="3"/></item>
+<item><product name="playStation" quantity="51"/></item>
+</invoice>
+----
+
+
+----
+from("direct:start")
+.split(xpath("//invoice/item/product")).to("direct:products").end().to("direct:result");
+----
 
 Użyj #Aggregator
 
