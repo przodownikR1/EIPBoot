@@ -1,30 +1,3 @@
-= EIP/Apache Camel
-
-:numbered:
-:icons: font
-:pagenums:
-:imagesdir: images
-:iconsdir: ./icons
-:stylesdir: ./styles
-:scriptsdir: ./js
-
-:image-link: https://pbs.twimg.com/profile_images/425289501980639233/tUWf7KiC.jpeg
-ifndef::sourcedir[:sourcedir: ./src/main/java/]
-ifndef::resourcedir[:resourcedir: ./src/main/resources/]
-ifndef::imgsdir[:imgsdir: ./../images]
-:source-highlighter: coderay
-
-
-
-== O mnie
-* Architect Solution - RiscoSoftware 
-* VavaTech trener : Spring ekosystem, JPA , EIP Camel 
-* Sages trener : JPA , EIP - Apache Camel 
-* blog link:http://przewidywalna-java.blogspot.com[]
-* twitter przodownikR1
-
-image:{image-link} [role='img-circle']
-
 
 include::integracja.adoc[]
 
@@ -1817,9 +1790,9 @@ include::monitoring.adoc[]
 
 include::performance.adoc[]
 
-include:errorhandling.adoc[]
+include::errorhandling.adoc[]
 
-include:ws.adoc[]
+include::ws.adoc[]
 
 include::testing.adoc[]
 

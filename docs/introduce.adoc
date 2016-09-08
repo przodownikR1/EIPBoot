@@ -1,3 +1,5 @@
+= EIP/Apache Camel
+
 :numbered:
 :icons: font
 :pagenums:
@@ -11,6 +13,17 @@ ifndef::sourcedir[:sourcedir: ./src/main/java/]
 ifndef::resourcedir[:resourcedir: ./src/main/resources/]
 ifndef::imgsdir[:imgsdir: ./../images]
 :source-highlighter: coderay
+
+
+
+== O mnie
+* Architect Solution - RiscoSoftware 
+* VavaTech trener : Spring ekosystem, JPA , EIP Camel 
+* Sages trener : JPA , EIP - Apache Camel 
+* blog link:http://przewidywalna-java.blogspot.com[]
+* twitter przodownikR1
+
+image:{image-link} [role='img-circle']
 
 == Apache Camel to:
 
@@ -69,3 +82,5 @@ image:camel_metafora.jpg[]
 
 ** pełna koncepcja EIP
 
+
+include::camel.adoc[]
