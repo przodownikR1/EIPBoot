@@ -453,6 +453,17 @@ Użyj #idempotentConsumer
 
 Użyj #loadBalancer
 
+
+----
+<loadBalance>
+<roundRobin/>
+<to uri="direct:a"/>
+<to uri="direct:b"/>
+<to uri="direct:c"/>
+</loadBalance>
+
+----
+
 Użyj #Throttle
 
 ----
@@ -463,6 +474,19 @@ Użyj #Throttle
 </throttle>
 </route>
 ----
+
+
+Użyj #Delayer
+
+----
+public class DelayBean {
+public int delay() {
+Random random = new Random();
+return random.nextInt(10000);
+}
+}
+----
+
 
 Użyj #Splitter
 
