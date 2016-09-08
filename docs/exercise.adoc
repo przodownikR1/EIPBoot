@@ -101,6 +101,24 @@ TIP: katalog routes
 </routes>
 ----
 
+Sparametryzuj Route
+
+----
+<route>
+<from uri="{{start.endpoint}}"/>
+<transform>
+<simple>{{transform.message}}: ${body}</simple>
+</transform>
+<to uri="{{end.endpoint}}"/>
+</route>
+----
+
+----
+PropertiesComponent properties = new PropertiesComponent();
+properties.setLocation("classpath:placeholder.properties");
+camelContext.addComponent(properties);
+----
+
 
 Stwórz prosty timer i wyrzuć tekst na konsole, do pliku i do logów.
 
@@ -180,6 +198,21 @@ Użyj #LogComponents
 </person>
 ----
 
+Wyłącz Route
+
+----
+context.stopRoute(routeName);
+----
+
+TIP: Użyj wątek
+
+Sposób 2:
+
+----
+.to("controlbus:route?routeId=mainRoute&action=stop&async=true")
+----
+
+
 Stwórz implementacje CBR
 
 TIP: xpath("/person/city = 'London'")
@@ -233,6 +266,18 @@ lub
 ----
 filter().method("myFilterBean", "isValid(@Header("userId"),${body}, null)")
 ----
+
+
+Użyj Predicate
+
+
+----
+public class MyPredicate {
+public boolean isValid(String body) {
+}
+}
+----
+
 
 Użyj #PipeLine
 
@@ -415,6 +460,33 @@ ConsumerTemplate consumerTemplate = camelContext().createConsumerTemplate();
 String result = consumerTemplate.receiveBody("activemq:my.queue",String.class);
 ----
 
+@Consume
+
+----
+public class Mdb {
+@Consume(uri="activemq:queue:my")
+public String onMyMessage(String message) {
+return "Hello " + message;
+}
+}
+----
+
+----
+public class MyBean {
+@Consume(uri="someEndpoint")
+public String myMethod(String message) {
+//...
+}
+}
+
+public class MyBean {
+@Consume(uri="someEndpoint")
+public String myMethod(String message) {
+//...
+}
+}
+----
+
 
 Wykorzystaj #Producer
 
@@ -422,6 +494,15 @@ Wykorzystaj #Producer
 ProducerTemplate producerTemplate = camelContext.createProducerTemplate();
 template.sendBody("direct:my", "<hello>world!</hello>");
 ----
+
+----
+public class MyProducer {
+@Produce
+private ProducerTemplate template;
+public String sayHello(String name) {
+return template.requestBody("activemq:queue:my",name, String.class);
+}
+}
 
 Użyj #multicast
 
@@ -544,6 +625,11 @@ Użyj # WireTap
 </route>
 ----
 
+Użyj asynchroniczność w taskach które się długo procesują 
+
+TIP: SEDA
+
+TIP: concurrentConsumers
 
 Wykorzystaj obsługę błędów
 
