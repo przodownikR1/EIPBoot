@@ -160,7 +160,7 @@ TIP : wykorzystaj #Direct
 
 TIP: wykorzystaj #SEDA
 
-
+Użyj #LogComponents
 
 ----
 <?xml version="1.0" encoding="UTF-8"?>
@@ -487,6 +487,8 @@ return random.nextInt(10000);
 }
 ----
 
+Użyj #Loop
+
 
 Użyj #Splitter
 
@@ -527,5 +529,36 @@ return oldExchange;
 
 
 Użyj #DynamicRouter
+
+Użyj # WireTap
+
+----
+<route>
+<from uri="timer:fire?period=5000"/>
+<setBody><constant>Hello !!</constant></setBody>
+<wireTap uri="direct:wiretap"/>
+<delay>
+<constant>3000</constant>
+<to uri="log:main"/>
+</delay>
+</route>
+----
+
+
+Wykorzystaj obsługę błędów
+
+# DeadLetterChannel
+
+# DefaultErrorHandler
+
+# NoErrorHandler
+
+# LoggingErrorHandler
+
+# Redelivery
+
+# Exception policy
+
+# Handling and ignoring exceptions
 
 

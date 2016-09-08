@@ -13,3 +13,212 @@ ifndef::imgsdir[:imgsdir: ./../images]
 :source-highlighter: coderay
 
 == Testowanie
+
+
+
+=== CamelTestSupport
+
+Zależność
+
+----
+<dependency>
+  <groupId>org.apache.camel</groupId>
+  <artifactId>camel-test</artifactId>
+  <version>${camel-version}</version>
+  <scope>test</scope>
+</dependency>
+----
+
+----
+public class FilterTest extends CamelTestSupport {
+ 
+    @EndpointInject(uri = "mock:result")
+    protected MockEndpoint resultEndpoint;
+ 
+    @Produce(uri = "direct:start")
+    protected ProducerTemplate template;
+ 
+    @Override
+    public boolean isDumpRouteCoverage() {
+        return true;
+    }
+ 
+    @Test
+    public void testSendMatchingMessage() throws Exception {
+        String expectedBody = "<matched/>";
+ 
+        resultEndpoint.expectedBodiesReceived(expectedBody);
+ 
+        template.sendBodyAndHeader(expectedBody, "foo", "bar");
+ 
+        resultEndpoint.assertIsSatisfied();
+    }
+ 
+    @Test
+    public void testSendNotMatchingMessage() throws Exception {
+        resultEndpoint.expectedMessageCount(0);
+ 
+        template.sendBodyAndHeader("<notMatched/>", "foo", "notMatchedHeaderValue");
+ 
+        resultEndpoint.assertIsSatisfied();
+    }
+ 
+    @Override
+    protected RouteBuilder createRouteBuilder() {
+        return new RouteBuilder() {
+            public void configure() {
+                from("direct:start").filter(header("foo").isEqualTo("bar")).to("mock:result");
+            }
+        };
+    }
+}
+----
+
+
+=== Spring JavaConfig & Camel Test
+
+----
+@RunWith(CamelSpringJUnit4ClassRunner.class)
+@ContextConfiguration(classes = {FilterTest.ContextConfig.class}, loader = CamelSpringDelegatingTestContextLoader.class)
+public class FilterTest extends AbstractJUnit4SpringContextTests {
+ 
+    @EndpointInject(uri = "mock:result")
+    protected MockEndpoint resultEndpoint;
+ 
+    @Produce(uri = "direct:start")
+    protected ProducerTemplate template;
+ 
+    @DirtiesContext
+    @Test
+    public void testSendMatchingMessage() throws Exception {
+        String expectedBody = "<matched/>";
+ 
+        resultEndpoint.expectedBodiesReceived(expectedBody);
+ 
+        template.sendBodyAndHeader(expectedBody, "foo", "bar");
+ 
+        resultEndpoint.assertIsSatisfied();
+    }
+ 
+    @DirtiesContext
+    @Test
+    public void testSendNotMatchingMessage() throws Exception {
+        resultEndpoint.expectedMessageCount(0);
+ 
+        template.sendBodyAndHeader("<notMatched/>", "foo", "notMatchedHeaderValue");
+ 
+        resultEndpoint.assertIsSatisfied();
+    }
+ 
+    @Configuration
+    public static class ContextConfig extends SingleRouteCamelConfiguration {
+        @Bean
+        public RouteBuilder route() {
+            return new RouteBuilder() {
+                public void configure() {
+                    from("direct:start").filter(header("foo").isEqualTo("bar")).to("mock:result");
+                }
+            };
+        }
+    }
+}
+----
+
+=== Spring Xml & Camel 
+
+----
+@ContextConfiguration
+public class FilterTest extends SpringRunWithTestSupport {
+ 
+    @EndpointInject(uri = "mock:result")
+    protected MockEndpoint resultEndpoint;
+ 
+    @Produce(uri = "direct:start")
+    protected ProducerTemplate template;
+ 
+    @DirtiesContext
+    @Test
+    public void testSendMatchingMessage() throws Exception {
+        String expectedBody = "<matched/>";
+ 
+        resultEndpoint.expectedBodiesReceived(expectedBody);
+ 
+        template.sendBodyAndHeader(expectedBody, "foo", "bar");
+ 
+        resultEndpoint.assertIsSatisfied();
+    }
+ 
+    @DirtiesContext
+    @Test
+    public void testSendNotMatchingMessage() throws Exception {
+        resultEndpoint.expectedMessageCount(0);
+ 
+        template.sendBodyAndHeader("<notMatched/>", "foo", "notMatchedHeaderValue");
+ 
+        resultEndpoint.assertIsSatisfied();
+    }
+}
+----
+
+
+----
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xsi:schemaLocation="
+       http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+       http://camel.apache.org/schema/spring http://camel.apache.org/schema/spring/camel-spring.xsd
+    ">
+ 
+  <camelContext xmlns="http://camel.apache.org/schema/spring">
+    <route>
+      <from uri="direct:start"/>
+      <filter>
+        <xpath>$foo = 'bar'</xpath>
+        <to uri="mock:result"/>
+      </filter>
+    </route>
+  </camelContext>
+ 
+</beans>
+----
+
+Przykład 2 
+
+----
+public class MySpringTest extends CamelSpringTestSupport {
+@Override
+protected AbstractXmlApplicationContext createApplicationContext()
+throws Exception {
+return new ClassPathXmlApplicationContext("myroute.xml");
+}
+@Override
+public String isMockEndpointsAndSkip() {
+return "*";
+}
+@Test
+public void shouldRouteWork() throws Exception {
+...
+}
+}
+----
+
+=== MockComponent
+
+----
+MockEndpoint mockEndpoint = getMockEndpoint("mock:file:/tmp/in");
+----
+
+** expectedMessageCount(int)
+
+** expectedMinimumMessageCount(int)
+
+** expectedBodiesReceived(...)
+
+** expectedHeaderRecevied(...)
+
+----
+mockEndpoint.assertIsSatisfied();
+----
+
+

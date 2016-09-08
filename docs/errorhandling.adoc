@@ -1,7 +1,7 @@
 == Rodzaje błędów
 
 
-=== Irrecoverable errors (nienadąjce się do ponownego przetworzenia)
+=== Irrecoverable errors (nienadające się do ponownego przetworzenia)
 
 ----
 Message msg = Exchange.getOut();

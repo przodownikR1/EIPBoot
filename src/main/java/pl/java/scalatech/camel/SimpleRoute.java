@@ -5,7 +5,10 @@ import org.apache.camel.processor.interceptor.Tracer;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import lombok.extern.slf4j.Slf4j;
+
 @Component
+@Slf4j
 public class SimpleRoute extends RouteBuilder{
     
     @Autowired
@@ -16,7 +19,16 @@ public class SimpleRoute extends RouteBuilder{
         
         tracer();
         
-        from("timer://foo?fixedRate=true&period=15000").routeId("simpleRoute").setBody(simple("fired at ${header.firedTime} ")).process(timerProcessor).log(">>> ${body}").bean(SimpleReceiver.class);
+        from("timer://foo?fixedRate=true&period=15000")
+        .routeId("simpleRoute")
+        .setBody(simple("fired at ${header.firedTime} "))
+        .process(timerProcessor)
+        .log(">>> ${body}").loop(5).to("direct:a");
+        
+        
+        from("direct:a").loop(4).process(exchange -> log.info("+++ looper 1!!!"));
+        
+        
         //simple("Helloworld timer fired at ${header.firedTime}"))
     }
 
