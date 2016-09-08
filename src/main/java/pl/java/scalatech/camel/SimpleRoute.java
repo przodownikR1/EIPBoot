@@ -3,11 +3,13 @@ package pl.java.scalatech.camel;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.processor.interceptor.Tracer;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 import lombok.extern.slf4j.Slf4j;
 
 @Component
+@Profile("simple")
 @Slf4j
 public class SimpleRoute extends RouteBuilder{
     

@@ -35,5 +35,7 @@ public class EipBootApplication implements CommandLineRunner{
     public void run(String... args) throws Exception {
        // camelContext.findEips().entrySet().stream().forEach(entry -> log.info("key : {} , value : {}",entry.getKey(),entry.getValue()));
         
+        producerTemplate.sendBody("direct:marshal", "przodownik");
+        producerTemplate.sendBody("direct:unmarshal", "przodownik");
     }
 }
