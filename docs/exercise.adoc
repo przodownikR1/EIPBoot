@@ -1,3 +1,16 @@
+Kluczowe pojęcia :
+
+*    http://camel.apache.org/maven/camel-2.13.0/camel-core/apidocs/org/apache/camel/Message.html[Messages]
+
+*    http://camel.apache.org/maven/current/camel-core/apidocs/org/apache/camel/ExchangePattern.html[Exchanges]
+
+*    http://camel.apache.org/maven/current/camel-core/apidocs/org/apache/camel/CamelContext.html[Camel contexts]
+
+*    http://camel.apache.org/components.html[Components]
+
+*    http://camel.apache.org/routes.html[routes]
+
+*    http://camel.apache.org/message-channel.html[channels]
 
 
 Stwórz prosty serwis Camela.
@@ -114,6 +127,34 @@ from(...).bean(MyService.class, "doSomething(${body},${header.userId})")
 from(...).to("bean:myService?method=doSomething(${body.asXml},${header.userId})")
 ----
 
+
+Zarejestruj bean
+
+
+----
+public class MySimpleBean {
+public String hello(String message) {
+return "Hello" + message;
+}
+}
+
+SimpleRegistry registry = new SimpleRegistry();
+registry.put("myBean", new MySimpleBean());
+CamelContext camelContext = new DefaultCamelContext(registry);
+
+...
+
+from("direct:start").to("bean:simpleBean").to("mock:stop");
+----
+
+** ApplicationContextRegistry - automatyczna rejestracja z kontekstu springa
+
+Użyj #Beana Springowego
+
+
+Użyj #@Handle w celu rozpoznania właściwej metody ServiceActivator 
+
+
 TIP : wykorzystaj #Direct
 
 
@@ -192,7 +233,33 @@ lub
 ----
 filter().method("myFilterBean", "isValid(@Header("userId"),${body}, null)")
 ----
-Użyj resequencer do posortowania wiadomości 
+
+Użyj #PipeLine
+
+W postaci jawnej i nie jawnej
+
+
+Użyj mechanizm #Point-To-Point
+
+timer
+set Body 
+jms1 -> delay -> log
+jms2 -> delay -> log
+
+
+Użyj mechanizm #Sub-Pub
+
+timer
+set Body
+jms1 -> delay -> log
+jms2 -> delay -> log
+
+
+
+
+
+
+Użyj #resequencer do posortowania wiadomości 
 
 ----
   from("direct:start")
@@ -259,6 +326,8 @@ from("...")
 unmarshal(new JacksonDataFormat(User.class))
 ----
 
+
+
 === XML JAXB
 
 ----
@@ -278,6 +347,64 @@ final DataFormat jaxb = new JaxbDataFormat(JAXBContext.newInstance(User.class));
 
 ----
 from(...).convertBodyTo(String.class).to(...)
+----
+
+----
+Message in = exchange.getIn();
+Document document = in.getBody(Document.class);
+----
+
+----
+public void testRemoveTypeConverter() {
+        DefaultCamelContext context = new DefaultCamelContext();        
+        context.getTypeConverterRegistry().addTypeConverter(MyOrder.class, String.class, new MyOrderTypeConverter());
+
+        MyOrder order = context.getTypeConverter().convertTo(MyOrder.class, "123");
+        assertNotNull(order);
+        assertEquals(123, order.getId());
+
+        // now remove it
+        boolean removed = context.getTypeConverterRegistry().removeTypeConverter(MyOrder.class, String.class);
+        assertTrue("Type converter should be removed", removed);
+
+        order = context.getTypeConverter().convertTo(MyOrder.class, "123");
+        assertNull("Type converter should be removed", order);
+}
+----
+
+----
+private static class MyOrder {
+        private int id;
+
+        public int getId() {
+            return id;
+        }
+
+        public void setId(int id) {
+            this.id = id;
+        }
+    }
+
+
+    private static class MyOrderTypeConverter extends TypeConverterSupport {
+
+        @SuppressWarnings("unchecked")
+        public <T> T convertTo(Class<T> type, Exchange exchange, Object value) {
+            MyOrder order = new MyOrder();
+            order.setId(Integer.parseInt(value.toString()));
+            return (T) order;
+        }
+    }
+
+----
+
+
+=== Data Format
+
+----
+from("jms:queue:my").unmarshal("jaxb").to("jms:queue:yours")
+
+from("file:data/inbox").unmarshal().serialization().marshall("jaxb").to("jms:queue:yours")
 ----
 
 
@@ -306,6 +433,20 @@ from("direct:start")
 .end()
 .to("direct:result");
 ----
+
+lub static 
+
+----
+<multicast>
+<to uri="direct:a"/>
+<to uri="direct:b"/>
+<to uri="direct:c"/>
+</multicast>
+----
+
+lub dynamicznie  **Recipient List**
+
+
 
 
 Użyj #idempotentConsumer
@@ -342,4 +483,25 @@ from("direct:start")
 ----
 
 Użyj #Aggregator
+
+Prosty przykład
+
+----
+public class StringAggregator implements AggregationStrategy {
+public Exchange aggregate(Exchange oldExchange, Exchange
+newExchange) {
+if (oldExchange == null) {
+return newExchange;
+}
+String oldBody = oldExchange.getIn().getBody(String.class);
+String newBody = newExchange.getIn().getBody(String.class);
+oldExchange.getIn().setBody(oldBody + "+" + newBody);
+return oldExchange;
+}
+}
+----
+
+
+Użyj #DynamicRouter
+
 
