@@ -17,7 +17,7 @@ import lombok.extern.slf4j.Slf4j;
 public class EipBootApplication implements CommandLineRunner{
     
     
-	public static void main(String[] args) throws IOException {	  
+	public static void main(String[] args) {	  
 		SpringApplication.run(EipBootApplication.class, args);
 		
 	}

@@ -130,6 +130,10 @@ Stwórz prosty timer i wyrzuć tekst na konsole, do pliku i do logów.
 </route>
 ----
 
+Wyciągnij dane z pliku po czym przenieść przeczytany plik do innej lokalizacji a wyłuskane dane zapisz do 2 pliku
+
+
+
 
 
 Stwórz prosty procesor
