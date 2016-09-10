@@ -182,7 +182,8 @@ include::routing.adoc[]
 
 include::transformacja.adoc[]
 
-incluce::endpoints.adoc[]
+include::endpoints.adoc[]
 
 include::zarzadzanie_eai.adoc[]
+
 

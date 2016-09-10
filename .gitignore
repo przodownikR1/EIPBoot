@@ -85,3 +85,4 @@ git.properties
 gc.log*
 app.log*
 in-out.log*
+/exerices_solution.txt

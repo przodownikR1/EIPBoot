@@ -1,7 +1,5 @@
 package pl.java.scalatech;
 
-import java.io.IOException;
-
 import org.apache.camel.CamelContext;
 import org.apache.camel.ConsumerTemplate;
 import org.apache.camel.ProducerTemplate;
@@ -11,7 +9,6 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 import io.hawt.springboot.EnableHawtio;
-import io.hawt.web.AuthenticationFilter;
 import lombok.extern.slf4j.Slf4j;
 
 @SpringBootApplication
@@ -20,8 +17,8 @@ import lombok.extern.slf4j.Slf4j;
 public class EipBootApplication implements CommandLineRunner{
     
     
-	public static void main(String[] args) throws IOException {	  
-	    System.setProperty(AuthenticationFilter.HAWTIO_AUTHENTICATION_ENABLED, "false");
+
+	public static void main(String[] args) {	  
 		SpringApplication.run(EipBootApplication.class, args);
 		
 	}

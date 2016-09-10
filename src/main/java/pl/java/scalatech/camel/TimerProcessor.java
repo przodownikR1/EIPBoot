@@ -4,8 +4,10 @@ import java.util.Date;
 
 import org.apache.camel.Exchange;
 import org.apache.camel.Processor;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 @Component
+@Profile("simple")
 public class TimerProcessor implements Processor {
 
     @Override
