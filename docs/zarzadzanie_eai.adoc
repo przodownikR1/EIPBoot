@@ -16,7 +16,7 @@ ifndef::imgsdir[:imgsdir: ./../images]
 
 === magistrala zarządzająca (Control Bus)
 
-image:ControlBus.gif[]
+image:ControlBus.png[]
 
 Zarządzanie dynamiczne trasami 
 
@@ -54,7 +54,7 @@ String xml = template.requestBody("controlbus:route?routeId=foo&action=stats", n
 
 === objazd (Detour)
 
-image:Detour.gif[]
+image:Detour.png[]
 
 Routing na awaryjne sytuacje.
 
@@ -84,7 +84,7 @@ Spring XML :
 
 === podsłuch  Wire Tap (Top ten)
 
-image:WireTap.gif[]
+image:WireTap.png[]
 
 Wysłanie kopii exchange do innej lokalizacji (trasy) bez impaktu na orginalną trasę wiadomości.
 
@@ -142,7 +142,7 @@ from("direct:tap_invoice")
 
 === historia wiadomości (Message History)
 
-image:MessageHistory.gif[]
+image:MessageHistory.png[]
 
 Systematyczne wzbogacanie wiadomości o dodatkowe informację służące do opisu historii przetwarzania
 
@@ -169,7 +169,7 @@ Podczas budowania kontekstu
 
 === magazyn wiadomości (Message Store)
 
-image:MessageStore.gif[]
+image:MessageStore.png[]
 
 Sekwencyjne odkładanie wiadomości po kolejnych etapach przetwarzania
 
@@ -179,13 +179,13 @@ NOTE: Dostępne w przyszłości od wersji 3.0 w góre
 === inteligentne proxy (Smart Proxy)
 
 
-image:SmartProxy.gif[]
+image:SmartProxy.png[]
 
 Nadpisywanie **Return address** w celu zmiany celu dostarczenia
 
 === wiadomość testowa (Test Message)
 
-image:TestMessage.gif[]
+image:TestMessage.png[]
 
 Specjalnie spreparowana wiadomość, którą usługi i infrastruktura będzie traktowała w inny sposób niż standardową wiadomość
 
@@ -194,7 +194,7 @@ NOTE: Testy
 
 === zsyp (Channel Purger)
 
-image:ChannelPurger.gif[]
+image:ChannelPurger.png[]
 
 Element który nie realizuje żadnej logiki przetwarzania jak również nie wpływa na przebieg całego procesu.
 

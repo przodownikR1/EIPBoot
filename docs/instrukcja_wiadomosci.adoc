@@ -21,13 +21,13 @@ Dokument do przetworzenia
 
 === komenda (Command Message)
 
-image:CommandMessageSolution.gif[]
+image:CommandMessageSolution.png[]
 
 Możliwość wykonania procedury w  innym zdalnym systemie (RPC-style integration)
 
 === zdarzenie  (Event message)
 
-image:EventMessageSolution.gif[]
+image:EventMessageSolution.png[]
 
 ** Zdarzenie na które możę zaragować system
 
@@ -64,7 +64,7 @@ to samo dla wywołania bean'a :
 
 === żądanie-odpowiedź (Request-reply)
 
-image:RequestReply.gif[]
+image:RequestReply.png[]
 
 Komunikacja w stylu żądanie-odpowiedź. Tworzony jest dodatkowy kanał na którym inicjalizator działania (źródło) czeka na odpowiedź
 
@@ -101,7 +101,7 @@ from("direct:testSetExchangePatternInOnly").setExchangePattern(ExchangePattern.I
 
 === adres odpowiedzi (Return Address)
 
-image:ReturnAddressSolution.gif[]
+image:ReturnAddressSolution.png[]
 
 W celu przeprowadzenia integracji w trybie request-reply musimy określić adres odpowiedzi dla odbiornika
 
@@ -129,7 +129,7 @@ from("activemq:queue:bar?disableReplyTo=true").to("mock:bar");
 
 === korelator (Colleration Identifier)
 
-image:CorrelationIdentifierSolution.gif[]
+image:CorrelationIdentifierSolution.png[]
 
 Umożliwia skolerowanie żądania wraz z odpowiedzią
 
@@ -154,13 +154,13 @@ Spring XML :
 
 === sekwencja (Message Sequence)
 
-image:MessageSequenceSize.gif[]
+image:MessageSequenceSize.png[]
 
 Umożliwia stworzenie sekwencji odpowiedzi w celu odpowiedniego przetwarzania
 
 === przedawnienie (Message Expiration)
 
-image:MessageExpirationSolution.gif[]
+image:MessageExpirationSolution.png[]
 
 Określia czas w którym wiadomość ma prawo zostać jeszcze przetworzona lub odebrana przez odbiornik.
 

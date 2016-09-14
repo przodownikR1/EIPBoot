@@ -18,7 +18,7 @@ image:messageRouting.png[]
 
 === Filtr (Message Filter) (Top ten)
 
-image:MessageFilter.gif[]
+image:MessageFilter.png[]
 
 ** pozwala na filtrowanie wiadomości - decyduje, które wiadomości mogą być przekazane dalej
 
@@ -144,7 +144,7 @@ dynamiczny
 
 == splitter (Top ten)
  
-image:Sequencer.gif[]
+image:Sequencer.png[]
 
 Określa w jaki sposób podzielić dużą wiadomość na mniejsze kawałki tak aby je skuteczniej procesować
 
@@ -318,7 +318,7 @@ Java :
 
 == agregator (Top ten)
 
-image:Aggregator.gif[]
+image:Aggregator.png[]
 
 
 Odwrotne działanie w stosunku do Spittera.
@@ -554,7 +554,7 @@ Przykład :
 
 == resequencer
 
-image:Resequencer.gif[]
+image:Resequencer.png[]
 
 ** Opisuje jak powinna być kolejność procesowanych wiadomości.
 
@@ -662,7 +662,7 @@ lub XML :
 
 == złożonej wiadomości (Composed Message Processor)
 
-image:DistributionAggregate.gif[]
+image:DistributionAggregate.png[]
 
 
 Złożona wiadomość jest rozbijana i obsługiwana w postaci mniejszych kawałków a następnie ponownie sklejania w logiczną całość.
@@ -683,7 +683,7 @@ NOTE : Splitter i Aggregator
 
 == scatter-gather
 
-image:BroadcastAggregate.gif[]
+image:BroadcastAggregate.png[]
 
 Najpierw następuje rozpoczenie wiadomości (scatter) a następnie zbieramy wyniki przetwarzania (gather)
 
@@ -785,7 +785,7 @@ public class LowestQuoteAggregationStrategy implements AggregationStrategy {
 == routing slip
 
 
-image:RoutingTableSimple.gif[]
+image:RoutingTableSimple.png[]
 
 Routnig polegający na określeniu wielu odbiorców
 
@@ -839,13 +839,13 @@ public List<String> routeMe(String body,
 
 == process manager  (Process Manager)
 
-image:ProcessManager.gif[]
+image:ProcessManager.png[]
 
 Orkiestracja , choreografia i kompozycja
 
 Można użyć wzorca Apache Camel : **Dynamic Router** jako zamiennika
 
-image:DynamicRouter.gif[]
+image:DynamicRouter.png[]
     
 ----
 from("direct:start")
@@ -947,7 +947,7 @@ public class MyDynamicRouter {
 
 == pośrednik (broker) (Message Broker)
 
-image:MessageBroker.gif[]
+image:MessageBroker.png[]
 
 Realizacja wzroca hub-and-spoke.
 

@@ -18,7 +18,7 @@ image:messangingChannels.png[]
 
 === punkt-punkt 
 
-image:PointToPointSolution.gif[]
+image:PointToPointSolution.png[]
 
 ** **SEDA** i  **VM** dla komunikacja pomiędzy trasami
 
@@ -41,7 +41,7 @@ Komponenty które wspiera Apache Camel:
 
 === publish-subscribe 
 
-image:PublishSubscribeSolution.gif[]
+image:PublishSubscribeSolution.png[]
 
 ** JMS jako Topic
 
@@ -63,7 +63,7 @@ Komponenty które wspiera Apache Camel:
 
 
 === datatype channel 
-image:DatatypeSolution.gif[]
+image:DatatypeSolution.png[]
 
 Przekazywanie wiadomości oraz nośnik  jak daną wiadomość skonsumować
 
@@ -72,7 +72,7 @@ NOTE: Brak odpowiednika w Apache Camel
 
 === invalid message 
 
-image:InvalidMessageSolution.gif[]
+image:InvalidMessageSolution.png[]
 
 
 Gromadzenie informacje które odbiornik uznał za niepoprawne
@@ -81,7 +81,7 @@ Note: Brak odpowiednik w Apache Camel
 
 === dead letter 
 
-image:DeadLetterChannelSolution.gif[]
+image:DeadLetterChannelSolution.png[]
 
 ** Gromadzi wiadomości, które nie dotarły do odbiorcy z powodu napotkanych awarii  
 
@@ -127,7 +127,7 @@ from("seda:a").to("seda:b");
 
 === gwarantowana dostawa 
 
-image:GuaranteedMessagingSolution.gif[]
+image:GuaranteedMessagingSolution.png[]
 
 Gwarancja dostraczenia wiadomości.
 
@@ -142,13 +142,13 @@ Wspierane komponenty przez Apache Camel:
 
 === adapter 
 
-image:ChannelAdapterSolution.gif[]
+image:ChannelAdapterSolution.png[]
 
 Element pośredniczący pomiędzy aplikacją a szyną czy MOM
 
 === most 
 
-image:MessagingBridge.gif[]
+image:MessagingBridge.png[]
 
 Łączy dwa niezależne kanały lub szyny danych
 
@@ -162,6 +162,6 @@ from("myJmsComponentA:endpointY").to("myJMSComponentB:endpointY");
 
 === magistrala 
 
-image:MessageBusSolution.gif[]
+image:MessageBusSolution.png[]
 
 Uspójniony zestaw operacji bądź usług umożliwiający ich wzajemną komunikację.

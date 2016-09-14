@@ -113,9 +113,6 @@ void done(boolean doneSync);
 }
 ----
 
-TODO
-
-
 == Procesowanie plików 
 
 Domyślnie jedno wątkowe

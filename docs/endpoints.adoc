@@ -18,7 +18,7 @@ image:messageEndpoints.png[]
 
 === brama (Messaging Gateway)
 
-image:MessagingGatewaySolution.gif[]
+image:MessagingGatewaySolution.png[]
 
 Pośrednik między aplikacją lub szyną a aplikacją domenową
 
@@ -30,7 +30,7 @@ NOTE: CXF, Bean w EIP
  
 === mapper (Messaging Mapper)
 
-image:MessagingMapperClassDiagram.gif[]
+image:MessagingMapperClassDiagram.png[]
 
 Element mapujący aplikację domenową a dalszą infrastukturą
 
@@ -53,7 +53,7 @@ from("activemq:foo")
 
 === transakcyjny klient (Transactional Client)
 
-image:TransactionalClientSolution.gif[]
+image:TransactionalClientSolution.png[]
 
 Określa granicę transakcji pomiędzy klientem a systemem transakcyjnym
 
@@ -167,7 +167,7 @@ from("direct:mixed2")
 
 === polling consumer 
 
-image:PollingConsumerSolution.gif[]
+image:PollingConsumerSolution.png[]
 
 Synchroniczny konsument
 
@@ -233,7 +233,7 @@ Exchange exchange = consumer.receive(5000);
 
 === event-driven consumer
 
-image:EventDrivenConsumerSolution.gif[]
+image:EventDrivenConsumerSolution.png[]
 
 Asynchroniczny konsument
 
@@ -243,7 +243,7 @@ from("jms:queue:foo").processRef("processor");
 
 === współzawodniczący klient (Competing Consumers)
 
-image:CompetingConsumers.gif[]
+image:CompetingConsumers.png[]
 
 Grupa współzawodniczących ze sobą konsumentów (p2p)
 
@@ -264,7 +264,7 @@ NOTE: SEDA, JMS
 
 === dystrybutor (dispatcher)
 
-image:MessageDispatcher.gif[]
+image:MessageDispatcher.png[]
 
 Dystrybuuje wiadomość do wielu konsumentów
 
@@ -289,7 +289,7 @@ from("jms:queue:foo?concurrentConsumers=5")
 
 === klient selektywny (Selective Consumer)
 
-image:MessageSelectorSolution.gif[]
+image:MessageSelectorSolution.png[]
 
 Klient może konsumować tylko określne wiadomości
 
@@ -323,7 +323,7 @@ Spring XMl :
 
 === trwały subskrybent (Durable Subscriber)
 
-image:DurableSubscriptionSolution.gif[]
+image:DurableSubscriptionSolution.png[]
 
 Wiamości będą czekać na przetworzenia do momentu kiedy klient stanie się aktywny.
 
@@ -493,7 +493,7 @@ from("direct:start")
 
 === service activator (Service Activator)
 
-image:MessagingAdapterSolution.gif[]
+image:MessagingAdapterSolution.png[]
 
 Fasada dostępu do usługi. 
 
