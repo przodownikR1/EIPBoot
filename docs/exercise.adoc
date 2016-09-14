@@ -193,19 +193,27 @@ Wyciągnij dane z pliku po czym przenieść przeczytany plik do innej lokalizacj
     </dependencies>
 ----
 
-file
+** file
 
-setHeader(FileComponent.HEADER_FILE_NAME, constant("...")
+*** setHeader(FileComponent.HEADER_FILE_NAME, constant("...")
 
-log
+*** fileExist=Append
 
-split
+** log
 
-xpath
+** split
+
+** xpath
 
 ----
  xpath("*/artifactId/text()"))
 ----
+
+
+Cześć 2 zamiast fileExist=Append użyj aggregatora
+
+
+
 
 
 Stwórz prosty procesor

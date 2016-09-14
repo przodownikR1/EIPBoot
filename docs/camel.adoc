@@ -1792,8 +1792,6 @@ include::performance.adoc[]
 
 include::errorhandling.adoc[]
 
-include::ws.adoc[]
-
 include::testing.adoc[]
 
 

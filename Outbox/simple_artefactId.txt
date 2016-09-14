@@ -1,11 +1,1 @@
-camel-core
-camel-stream
-camel-jms
-activemq-camel
-activemq-pool
-spring-context
-camel-spring
-junit
-camel-test-spring
-slf4j-api
 slf4j-log4j12
