@@ -16,7 +16,7 @@ ifndef::imgsdir[:imgsdir: ./../images]
 
 === wiadomość (Message)
 
-image:MessageSolution.gif[]
+image:MessageSolution.png[]
 
 Patrz : sekcja Camel
 
@@ -53,7 +53,7 @@ XML :
 
 === kanał wiadomości (Message Channel)
 
-image:MessageChannelSolution.gif[]
+image:MessageChannelSolution.png[]
 
 Fizyczna bądz logiczna reprezentacja drogi/trasy po której poruszają się wiadomości 
 
@@ -79,7 +79,7 @@ Komponenty:
 === potok i filtr  (Pipes and Filters) (Top ten)
 
 
-image:PipesAndFilters.gif[]
+image:PipesAndFilters.png[]
 
 
 ** Filters - decydują które wiadomości mogą być przekazywane dalej w czasie tras
@@ -98,7 +98,7 @@ source:https://access.redhat.com/documentation/en-US/Red_Hat_JBoss_Fuse/6.0/html
 
 === InOut
 
-image:pipe_and_filters.gif[]
+image:pipe_and_filters.png[]
 
 ----
 from("jms:RawOrders").pipeline("cxf:bean:decrypt", "cxf:bean:authenticate", "cxf:bean:dedup", "jms:CleanOrders");
@@ -110,7 +110,7 @@ from("jms:RawOrders").pipeline("cxf:bean:decrypt", "cxf:bean:authenticate", "cxf
 source:https://access.redhat.com/documentation/en-US/Red_Hat_JBoss_Fuse/6.0/html/Implementing_Enterprise_Integration_Patterns/files/MsgSys-Pipes.html
 
 
-image:pipe_and_filters_in.gif[]
+image:pipe_and_filters_in.png[]
 
 
 [source,xml]
@@ -193,7 +193,7 @@ Spring XML :
 
 === router (MessageRouter)
 
-image:MessageRouter.gif[]
+image:MessageRouter.png[]
 
 Pozwala przekierować wiadomość na inne elementy bądź trasy w zależności od zdefiniowanych warunków
 
@@ -241,7 +241,7 @@ Spring XML :
 
 === translator (Message Translator)
 
-image:MessageTranslator.gif[]
+image:MessageTranslator.png[]
 
 Element zmieniający format lub reprezentacje danej wiadomości
 
@@ -361,7 +361,7 @@ public String transformOrder(String body) {
 
 === punkt końcowy (Message Endpoint)
 
-image:MessageEndpointSolution.gif[]
+image:MessageEndpointSolution.png[]
 
 ** Łączy trasy ze sobą nawzajem
 

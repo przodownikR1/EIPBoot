@@ -18,13 +18,13 @@ image:messageTransformation.png[]
 
 === opakowanie (Envelope Wrapper)
 
-image:Wrapper.gif[]
+image:Wrapper.png[]
 
 Odpowiada za opakowanie wiadomości - wrapper java
 
 === wzbogacenie (Enricher)
 
-image:DataEnricher.gif[]
+image:DataEnricher.png[]
 
 Wzbogaca wiadomość o brakujący element lub wartość.
 
@@ -141,7 +141,7 @@ public class ExampleAggregationStrategy implements AggregationStrategy {
 
 === fitrowanie treści (Content Filter)
 
-image:ContentFilter.gif[]
+image:ContentFilter.png[]
 
 Uzyskiwanie prostszej struktury wiadomości
 
@@ -169,7 +169,7 @@ from("direct:start").process(new Processor() {
 
 === claim check
 
-image:StoreInLibrary.gif[]
+image:StoreInLibrary.png[]
 
 NOTE: Content Filter + Enricher
 
@@ -290,7 +290,7 @@ from("myComponent:endpointA"
 
 === kanonizacja (Canonical Data Model)
 
-image:CanonicalDataModel.gif[]
+image:CanonicalDataModel.png[]
 
 Modyfikacja wiadomości do postaci kanonicznej
 

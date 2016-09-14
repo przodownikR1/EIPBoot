@@ -301,7 +301,7 @@ lub Xml :
 
 == Recipient List
 
-image:RecipientList.gif[]
+image:RecipientList.png[]
 
 Dynamiczna decyzja gdzie ma trafić wiadomość do konkretnego punktu końcowego czy zbioru takich punktów.
 
@@ -351,7 +351,7 @@ anulowanie błędych punktów końcowych
 
 == Dynamic Router
 
-image:DynamicRouter.gif[]
+image:DynamicRouter.png[]
 
 Dynamiczne zarządzanie sekwencją wywołań punktów końcowych 
 

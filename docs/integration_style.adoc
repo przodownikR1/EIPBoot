@@ -73,7 +73,7 @@ TIP : Do umożliwienia częstej wymiany małych ilości danych przy użyciu jedn
 
 source:www.enterpriseintegrationpatterns.com
 
-image:FileTransferIntegration.gif[]
+image:FileTransferIntegration.png[]
 
 Aplikacja produkuje pliki zawierające informację potrzebne do integracji. Druga aplikacja konsumuje je w określonych odstępach czasu albo przez ciągły monitoring (polling) zasobu. Następnie musi wziąć odpowiedzialność za transformowanie plików do spójnych czytelnych formatów.
 
@@ -119,7 +119,7 @@ TIP : jeśli zależy Ci na umożliwieniu częstej wymiany małych ilości danych
 
 source:www.enterpriseintegrationpatterns.com
 
-image:EncapsulatedSynchronousIntegration.gif[]
+image:EncapsulatedSynchronousIntegration.png[]
 
 ** Features :
  
@@ -161,7 +161,7 @@ Tip : W celu częstej wymiany małych ilości informacji, bez żadnego narzutu n
 
 source:www.enterpriseintegrationpatterns.com
 
-image:Messaging.gif[]
+image:Messaging.png[]
 
 ** Pojęcia kluczowe w messagingu :
 

@@ -64,7 +64,7 @@ W skład wiadomości wchodzą :
  
  source:https://access.redhat.com/documentation/en-US/Red_Hat_JBoss_Fuse/6.0/html/Implementing_Enterprise_Integration_Patterns/files/BasicPrinciples-PipelineProcessing.html
  
- image:inOnly.gif[]
+ image:inOnly.png[]
  
  ----
  from("activemq:userdataQueue")
@@ -80,7 +80,7 @@ W skład wiadomości wchodzą :
   
  source:https://access.redhat.com/documentation/en-US/Red_Hat_JBoss_Fuse/6.0/html/Implementing_Enterprise_Integration_Patterns/files/BasicPrinciples-PipelineProcessing.html
   
-  image:inOut.gif[]
+  image:inOut.png[]
   
 [source,java] 
 ----
@@ -112,7 +112,7 @@ To skrót określający wzorzec wymiany komunikatów. Jest to termin zaczerpnię
 
 source: https://access.redhat.com/documentation/en-US/Red_Hat_JBoss_Fuse/6.0/html/Implementing_Enterprise_Integration_Patterns/files/FMRS.BJDS.html
 
-image:route.gif[]
+image:route.png[]
 
 zestaw kroków zdefiniowanych przez programistę zaczynając od słowa kluczowego a zarazem Endpointu "from". 
 Trasy są z reguły luźno powiązane i powinny być łatwe do przetestowania i użycia w innym miejscu systemu.
@@ -399,7 +399,7 @@ image:service_lifecycle.png[]
 
 source:https://access.redhat.com/documentation/en-US/Red_Hat_JBoss_Fuse/6.0/html/Implementing_Enterprise_Integration_Patterns/files/FMRS.BJDS.html
 
-image:dsl.gif[]
+image:dsl.png[]
 
 
 *** Java
@@ -592,7 +592,7 @@ from("direct:start").choice()
 
 ** **Event Driven Consumers**
 
-image:EventDrivenConsumerSolution.gif[]
+image:EventDrivenConsumerSolution.png[]
  
 np jms component, cxf component
 
@@ -612,7 +612,7 @@ lub XML :
 
 ** **Polling Consumers** 
 
-image:PollingConsumerSolution.gif[]
+image:PollingConsumerSolution.png[]
 
 np file component
 
@@ -1368,18 +1368,6 @@ from("file://data/inbox?noop=true&maxMessagesPerPoll=1&delay=5000")
 ----
 
 
-
-
-=== Własny mashaller
-
-TODO
-
-
-=== Własny konwerter
-
-
-TODO
-
 == Logowanie zdarzeń
 
 ----
@@ -1791,8 +1779,6 @@ include::monitoring.adoc[]
 include::performance.adoc[]
 
 include::errorhandling.adoc[]
-
-include::ws.adoc[]
 
 include::testing.adoc[]
 

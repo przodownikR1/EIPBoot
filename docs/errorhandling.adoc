@@ -49,7 +49,6 @@ public void configure() throws Exception {
 
 ** useOriginalMessage
 
-TODO
 
  
 === LoggingErrorHandler
