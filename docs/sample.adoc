@@ -1,0 +1,84 @@
+----
+    compile 'com.github.javafaker:javafaker:0.7' 
+----
+
+----
+public enum Position {
+    
+    PROGRAMMER,DEVOPS,MANAGER,LEADER,DBA,TESTER;
+
+}
+----
+
+----
+@Entity
+@Table(name = "users")
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+@Builder
+public class User {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.AUTO)
+    private Long id;
+
+    @NotNull
+    private String email;
+
+    @NotNull
+    private String name;
+    
+    private String creditCard;
+    
+    private String creditCardType;
+    
+
+    private String login;
+    
+
+    private BigDecimal salary;
+    
+ 
+    private String city;
+    
+
+    private String country;
+
+    @Enumerated
+    private Position position;
+
+}
+----
+  
+----  
+    @Bean
+    @Order(2)
+    public CommandLineRunner sendToCsvProcessor(UserRepository userRepository, ProducerTemplate producerTemplate) {
+
+        return args -> {
+            userRepository.findAll().forEach(user->producerTemplate.sendBody("direct:start", user));
+        };
+
+    }
+
+    // @formatter:off
+    private User generateSingleUser(Faker faker, Position[] positions) {
+        User user = User.builder()
+                .email(faker.internet().emailAddress())
+                .creditCard(faker.business().creditCardNumber())
+                .creditCardType(faker.business().creditCardType())
+                .city(faker.address().city())
+                .country(faker.country().name())
+                .login(faker.name().fullName())
+                .name(faker.name().lastName())
+                .position(positions[r.nextInt(positions.length-1)])
+                .salary(new BigDecimal(r.nextInt(10000)))
+                .build();
+                log.debug("user: {}",user);
+        return user;
+    }
+ // @formatter:on
+}
+----
+
